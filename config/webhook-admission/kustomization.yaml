@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+resources:
+- admission_configurations.yaml
+- ../webhook
+
+patchesStrategicMerge:
+- admission_configurations_ca_patch.yaml
+
+configurations:
+  - kustomizeconfig.yaml

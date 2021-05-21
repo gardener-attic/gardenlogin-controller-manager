@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -o errexit
+set -o pipefail
+
+# For the check step concourse will set the following environment variables:
+# MAIN_REPO_DIR - path to the main repository
+
+if [[ -z "${MAIN_REPO_DIR}" ]]; then
+  export MAIN_REPO_DIR="$(readlink -f "$(dirname ${0})/..")"
+else
+  export MAIN_REPO_DIR="$(readlink -f ${MAIN_REPO_DIR})"
+fi
+
+CR_VERSION=$(go mod edit -json | jq -r '.Require[] | select(.Path=="sigs.k8s.io/controller-runtime") | .Version')
+
+ENVTEST_ASSETS_DIR="${MAIN_REPO_DIR}/testbin"
+
+mkdir -p "${ENVTEST_ASSETS_DIR}"
+test -f "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh || curl -sSLo "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/$(CR_VERSION)/hack/setup-envtest.sh
+source "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh; fetch_envtest_tools "${ENVTEST_ASSETS_DIR}"; setup_envtest_env "${ENVTEST_ASSETS_DIR}"
+
+pushd "$MAIN_REPO_DIR"
+
+echo "> Test"
+
+GO111MODULE=on go test ./... -race -coverprofile cover.out
+
+popd

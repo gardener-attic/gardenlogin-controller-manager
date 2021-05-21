@@ -38,6 +38,8 @@ func main() {
 		metricsAddr          string
 		enableLeaderElection bool
 		probeAddr            string
+		certDir              string
+		configFile           string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -45,6 +47,8 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&certDir, "cert-dir", "/tmp/k8s-webhook-server/serving-certs", "CertDir is the directory that contains the server key and certificate.")
+	flag.StringVar(&configFile, "config-file", "/etc/garden-login-controller-manager/config.yaml", "The path to the configuration file.")
 
 	opts := zap.Options{
 		Development: true,
@@ -80,7 +84,7 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	
+
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Namespace needed also for virtual-garden, hence it needed to be copied to config/overlay/multi-cluster/virtual-garden/namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -28,11 +29,13 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        runAsUser: 65532 # TODO from TCM
       containers:
       - command:
         - /manager
         args:
-        - --leader-elect
+        - "--leader-elect"
+        - "--config-file=/etc/garden-login-controller-manager/config.yaml"
         image: controller:latest
         name: manager
         securityContext:
@@ -51,10 +54,21 @@ spec:
           periodSeconds: 10
         resources:
           limits:
-            cpu: 100m
-            memory: 30Mi
+            cpu: 200m
+            memory: 300Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 100Mi
+        volumeMounts:
+          - mountPath: /etc/garden-login-controller-manager
+            name: manager-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: config.yaml
+                path: config.yaml
+            name: controller-manager-configmap
+          name: manager-config

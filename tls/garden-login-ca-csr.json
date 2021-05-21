@@ -1,0 +1,12 @@
+{
+    "CN": "ca-gardener-garden-login",
+    "hosts": [
+        "ca-gardener-garden-login"
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": []
+}
+
