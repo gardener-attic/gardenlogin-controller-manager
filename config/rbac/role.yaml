@@ -26,6 +26,8 @@ rules:
   - watch
   - create
   - patch
+  - update
+  - delete
 - apiGroups:
   - admissionregistration.k8s.io
   resources:

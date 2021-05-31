@@ -29,13 +29,14 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532 # TODO from TCM
+        runAsUser: 65532
       containers:
       - command:
         - /manager
         args:
         - "--leader-elect"
         - "--config-file=/etc/garden-login-controller-manager/config.yaml"
+        - "zap-devel=false"
         image: controller:latest
         name: manager
         securityContext:
