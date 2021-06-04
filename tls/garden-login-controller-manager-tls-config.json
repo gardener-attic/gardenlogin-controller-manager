@@ -1,11 +1,11 @@
 {
-    "CN": "garden-login-webhook-service.garden-login-system.svc.cluster.local",
+    "CN": "garden-login-webhook-service.login-system.svc.cluster.local",
     "hosts": [
         "garden-login-webhook-service",
-        "garden-login-webhook-service.garden-login-system",
-        "garden-login-webhook-service.garden-login-system.svc",
-        "garden-login-webhook-service.garden-login-system.svc.cluster",
-        "garden-login-webhook-service.garden-login-system.svc.cluster.local"
+        "garden-login-webhook-service.login-system",
+        "garden-login-webhook-service.login-system.svc",
+        "garden-login-webhook-service.login-system.svc.cluster",
+        "garden-login-webhook-service.login-system.svc.cluster.local"
     ],
     "key": {
         "algo": "rsa",

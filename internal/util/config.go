@@ -28,16 +28,16 @@ type ControllerManagerConfiguration struct {
 
 // ControllerManagerControllerConfiguration defines the configuration of the controllers.
 type ControllerManagerControllerConfiguration struct {
-	// ShootState defines the configuration of the ShootState controller.
-	ShootState ShootStateControllerConfiguration `yaml:"shootState"`
+	// Shoot defines the configuration of the Shoot controller.
+	Shoot ShootControllerConfiguration `yaml:"shoot"`
 }
 
-// ShootStateControllerConfiguration defines the configuration of the ShootState controller.
-type ShootStateControllerConfiguration struct {
+// ShootControllerConfiguration defines the configuration of the Shoot controller.
+type ShootControllerConfiguration struct {
 	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 15.
 	MaxConcurrentReconciles int `yaml:"maxConcurrentReconciles"`
 
-	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run per Namespace (independent of the user who created the ShootState resource). Defaults to 3.
+	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run per Namespace (independent of the user who created the Shoot resource). Defaults to 3.
 	MaxConcurrentReconcilesPerNamespace int `yaml:"maxConcurrentReconcilesPerNamespace"`
 }
 
@@ -49,7 +49,7 @@ type ControllerManagerWebhookConfiguration struct {
 
 // ConfigMapValidatingWebhookConfiguration defines the configuration of the validating webhook.
 type ConfigMapValidatingWebhookConfiguration struct {
-	// MaxObjectSize is the maximum size of a configmap resource in bytes. Defaults to 10240.
+	// MaxObjectSize is the maximum size of a configmap resource in bytes. Defaults to 102400.
 	MaxObjectSize int `yaml:"maxObjectSize"`
 }
 
@@ -57,9 +57,14 @@ func ReadControllerManagerConfiguration(configFile string) (*ControllerManagerCo
 	// Default configuration
 	cfg := ControllerManagerConfiguration{
 		Controllers: ControllerManagerControllerConfiguration{
-			ShootState: ShootStateControllerConfiguration{
+			Shoot: ShootControllerConfiguration{
 				MaxConcurrentReconciles:             50,
 				MaxConcurrentReconcilesPerNamespace: 3,
+			},
+		},
+		Webhooks: ControllerManagerWebhookConfiguration{
+			ConfigMapValidation: ConfigMapValidatingWebhookConfiguration{
+				MaxObjectSize: 100 * 1024,
 			},
 		},
 	}
@@ -88,14 +93,14 @@ func readFile(configFile string, cfg *ControllerManagerConfiguration) error {
 }
 
 func validateConfig(cfg *ControllerManagerConfiguration) error {
-	if cfg.Controllers.ShootState.MaxConcurrentReconciles < 1 {
+	if cfg.Controllers.Shoot.MaxConcurrentReconciles < 1 {
 		fldPath := field.NewPath("controllers", "shootState", "maxConcurrentReconciles")
-		return field.Invalid(fldPath, cfg.Controllers.ShootState.MaxConcurrentReconciles, "must be 1 or greater")
+		return field.Invalid(fldPath, cfg.Controllers.Shoot.MaxConcurrentReconciles, "must be 1 or greater")
 	}
 
-	if cfg.Controllers.ShootState.MaxConcurrentReconcilesPerNamespace > cfg.Controllers.ShootState.MaxConcurrentReconciles {
+	if cfg.Controllers.Shoot.MaxConcurrentReconcilesPerNamespace > cfg.Controllers.Shoot.MaxConcurrentReconciles {
 		fldPath := field.NewPath("controllers", "shootState", "maxConcurrentReconcilesPerNamespace")
-		return field.Invalid(fldPath, cfg.Controllers.ShootState.MaxConcurrentReconcilesPerNamespace, "must not be greater than maxConcurrentReconciles")
+		return field.Invalid(fldPath, cfg.Controllers.Shoot.MaxConcurrentReconcilesPerNamespace, "must not be greater than maxConcurrentReconciles")
 	}
 
 	return nil

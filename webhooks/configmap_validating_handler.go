@@ -16,6 +16,8 @@ import (
 
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,12 +51,21 @@ func (h *ConfigmapValidator) getConfig() *util.ControllerManagerConfiguration {
 //	h.Config = config
 //}
 
-func (h *ConfigmapValidator) validatingKubeconfigConfigMapFn(ctx context.Context, t *corev1.ConfigMap, oldT *corev1.ConfigMap, admissionReq admissionv1.AdmissionRequest) (bool, string, error) {
-	fldValidations := getFieldValidations(t)
+func (h *ConfigmapValidator) validatingKubeconfigConfigMapFn(ctx context.Context, c *corev1.ConfigMap, oldC *corev1.ConfigMap, admissionReq admissionv1.AdmissionRequest) (bool, string, error) {
+	fldValidations := getFieldValidations(c)
 	if err := validateRequiredFields(fldValidations); err != nil {
 		return false, err.Error(), nil
 	}
-	// TODO
+
+	userInfo := admissionReq.UserInfo
+
+	// Validate that user has the permission to "manage" configmaps.
+	// Usually we only want to have the garden-login-controller-manager to have this permission and no one else, so that no one fiddles around with the kubeconfigs
+	if allowed, err := h.canManageConfigmapsAccessReview(ctx, userInfo, c.Namespace, c.Name); err != nil {
+		return false, err.Error(), nil
+	} else if !allowed {
+		return false, "not allowed to manage configmaps", nil
+	}
 
 	return true, "allowed to be admitted", nil
 }
@@ -92,6 +103,32 @@ func validateRequiredField(val *string, fldPath *field.Path) error {
 	}
 
 	return nil
+}
+
+func (h *ConfigmapValidator) canManageConfigmapsAccessReview(ctx context.Context, userInfo authenticationv1.UserInfo, namespace string, name string) (bool, error) {
+	extra := make(map[string]authorizationv1.ExtraValue)
+	for k, v := range userInfo.Extra {
+		extra[k] = authorizationv1.ExtraValue(v)
+	}
+
+	subjectAccessReview := &authorizationv1.SubjectAccessReview{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Group:     corev1.GroupName,
+				Resource:  corev1.ResourceConfigMaps.String(),
+				Verb:      "manage",
+				Name:      name,
+				Namespace: namespace,
+			},
+			User:   userInfo.Username,
+			Groups: userInfo.Groups,
+			UID:    userInfo.UID,
+			Extra:  extra,
+		},
+	}
+	err := h.client.Create(ctx, subjectAccessReview)
+
+	return subjectAccessReview.Status.Allowed, err
 }
 
 var _ admission.Handler = &ConfigmapValidator{}

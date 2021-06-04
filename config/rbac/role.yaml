@@ -12,33 +12,33 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - events
+  - configmaps
   verbs:
   - create
+  - delete
+  - get
+  - list
+  - manage
   - patch
+  - update
+  - watch
 - apiGroups:
   - ""
   resources:
-  - configmaps
+  - configmaps/finalizers
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - patch
   - update
-  - delete
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - list
 - apiGroups:
   - core.gardener.cloud
   resources:
   - shoots
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.gardener.cloud
+  resources:
   - shootstates
   verbs:
   - get

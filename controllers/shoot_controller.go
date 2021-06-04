@@ -25,6 +25,7 @@ import (
 	"github.com/gardener/gardener/pkg/utils/secrets"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kErros "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,18 +33,25 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	clientauthenticationv1beta1 "k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 	"k8s.io/client-go/rest"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 	clientcmdv1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// ShootStateReconciler reconciles a ShootState object
-type ShootStateReconciler struct {
+// ShootReconciler reconciles a Shoot object
+type ShootReconciler struct {
 	Scheme *runtime.Scheme
 	*ClientSet
 	Recorder                    record.EventRecorder
@@ -54,14 +62,15 @@ type ShootStateReconciler struct {
 	configMutex                 sync.RWMutex
 }
 
-//+kubebuilder:rbac:groups=,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=,resources=configmaps/finalizers,verbs=update
-//+kubebuilder:rbac:groups="core.gardener.cloud",resources=shootstate,verbs=get;list;watch;
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete;manage
+//+kubebuilder:rbac:groups="",resources=configmaps/finalizers,verbs=update
+//+kubebuilder:rbac:groups="core.gardener.cloud",resources=shootstates,verbs=get;list;watch;
+//+kubebuilder:rbac:groups="core.gardener.cloud",resources=shoots,verbs=get;list;watch;
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *ShootStateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("shootstate", req.NamespacedName)
+func (r *ShootReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	_ = r.Log.WithValues("shoot", req.NamespacedName)
 
 	if err := r.increaseCounterForNamespace(req.Namespace); err != nil {
 		r.Log.Info("maximum parallel reconciles reached for namespace - requeuing the req", "namespace", req.Namespace, "name", req.Name)
@@ -79,9 +88,22 @@ func (r *ShootStateReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ShootStateReconciler) SetupWithManager(mgr ctrl.Manager, config util.ShootStateControllerConfiguration) error {
+func (r *ShootReconciler) SetupWithManager(mgr ctrl.Manager, config util.ShootControllerConfiguration) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gardencorev1alpha1.ShootState{}).
+		For(&gardencorev1beta1.Shoot{}, builder.WithPredicates(r.shootPredicate())).
+		Owns(&corev1.ConfigMap{}, builder.WithPredicates(r.configMapPredicate())).
+		Watches(&source.Kind{Type: &gardencorev1alpha1.ShootState{}},
+			handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      o.GetName(),
+							Namespace: o.GetNamespace(),
+						},
+					},
+				}
+			}),
+			builder.WithPredicates(r.shootStatePredicate())).
 		Named("main").
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: config.MaxConcurrentReconciles,
@@ -89,9 +111,161 @@ func (r *ShootStateReconciler) SetupWithManager(mgr ctrl.Manager, config util.Sh
 		Complete(r)
 }
 
-func (r *ShootStateReconciler) handleRequest(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// shootPredicate returns true for all create and delete events. It returns true for update events in case the advertised addresses have changed
+func (r *ShootReconciler) shootPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil {
+				r.Log.Error(nil, "Update event has no old runtime object to update", "event", e)
+				return false
+			}
+
+			if e.ObjectNew == nil {
+				r.Log.Error(nil, "Update event has no new runtime object for update", "event", e)
+				return false
+			}
+
+			old, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
+			if !ok {
+				r.Log.Error(nil, "Update event old runtime object cannot be converted to Shoot", "event", e)
+				return false
+			}
+
+			new, ok := e.ObjectNew.(*gardencorev1beta1.Shoot)
+			if !ok {
+				r.Log.Error(nil, "Update event new runtime object cannot be converted to Shoot", "event", e)
+				return false
+			}
+
+			// length has changed - event should be processed
+			if len(old.Status.AdvertisedAddresses) != len(new.Status.AdvertisedAddresses) {
+				return true
+			}
+
+			// if the advertised addresses have changed the event should be processed
+			for i, addressNew := range new.Status.AdvertisedAddresses {
+				addressOld := old.Status.AdvertisedAddresses[i]
+				if addressOld.Name != addressNew.Name {
+					return true
+				}
+
+				if addressOld.URL != addressNew.URL {
+					return true
+				}
+			}
+
+			// no change detected that is relevant for this controller
+			return false
+		},
+	}
+}
+
+// configMapPredicate returns true for all create and delete events. It returns true for update events in case the kubeconfig data or the kubeconfig role label has changed
+func (r *ShootReconciler) configMapPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil {
+				r.Log.Error(nil, "Update event has no old runtime object to update", "event", e)
+				return false
+			}
+
+			if e.ObjectNew == nil {
+				r.Log.Error(nil, "Update event has no new runtime object for update", "event", e)
+				return false
+			}
+
+			old, ok := e.ObjectOld.(*corev1.ConfigMap)
+			if !ok {
+				r.Log.Error(nil, "Update event old runtime object cannot be converted to ConfigMap", "event", e)
+				return false
+			}
+
+			new, ok := e.ObjectNew.(*corev1.ConfigMap)
+			if !ok {
+				r.Log.Error(nil, "Update event new runtime object cannot be converted to ConfigMap", "event", e)
+				return false
+			}
+
+			// ignore configmaps that do not have the kubeconfig role
+			if old.Labels[constants.GardenerOperationsRole] != constants.GardenerOperationsKubeconfig &&
+				new.Labels[constants.GardenerOperationsRole] != constants.GardenerOperationsKubeconfig {
+				return false
+			}
+
+			// handle event in case the role has changed
+			if old.Labels[constants.GardenerOperationsRole] != new.Labels[constants.GardenerOperationsRole] {
+				return true
+			}
+
+			// handle event in case the kubeconfig has changed
+			if old.Data[constants.DataKeyKubeconfig] != new.Data[constants.DataKeyKubeconfig] {
+				return true
+			}
+
+			// no change detected that is relevant for this controller
+			return false
+		},
+	}
+}
+
+// shootStatePredicate returns true for all create and delete events. It returns true for update events in case the cluster ca changes
+func (r *ShootReconciler) shootStatePredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil {
+				r.Log.Error(nil, "Update event has no old runtime object to update", "event", e)
+				return false
+			}
+
+			if e.ObjectNew == nil {
+				r.Log.Error(nil, "Update event has no new runtime object for update", "event", e)
+				return false
+			}
+
+			old, ok := e.ObjectOld.(*gardencorev1alpha1.ShootState)
+			if !ok {
+				r.Log.Error(nil, "Update event old runtime object cannot be converted to ShootState", "event", e)
+				return false
+			}
+
+			new, ok := e.ObjectNew.(*gardencorev1alpha1.ShootState)
+			if !ok {
+				r.Log.Error(nil, "Update event new runtime object cannot be converted to ShootState", "event", e)
+				return false
+			}
+
+			oldCaCert, err := clusterCaCert(old)
+			if err != nil {
+				r.Log.Error(nil, "Update event failed to read cluster ca from old ShootState", "event", e)
+				return false
+			}
+
+			newCaCert, err := clusterCaCert(new)
+			if err != nil {
+				r.Log.Error(nil, "Update event failed to read cluster ca from new ShootState", "event", e)
+				return false
+			}
+
+			return apiequality.Semantic.DeepEqual(oldCaCert, newCaCert)
+		},
+	}
+}
+
+func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	kubeconfigName := fmt.Sprintf("%s.kubeconfig", req.Name)
 	kubeconfigConfigMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: kubeconfigName, Namespace: req.Namespace}}
+
+	// fetch Shoot
+	shoot := &gardencorev1beta1.Shoot{}
+
+	if err := r.Client.Get(ctx, req.NamespacedName, shoot); err != nil {
+		if kErros.IsNotFound(err) {
+			// shoot does not exist anymore - cleanup kubeconfig configmap
+			return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
+		}
+		// Error reading the object - requeue the request
+		return ctrl.Result{}, err
+	}
 
 	// fetch ShootState
 	shootState := &gardencorev1alpha1.ShootState{}
@@ -110,18 +284,6 @@ func (r *ShootStateReconciler) handleRequest(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
 	}
 
-	// fetch Shoot
-	shoot := &gardencorev1beta1.Shoot{}
-
-	if err := r.Client.Get(ctx, req.NamespacedName, shoot); err != nil {
-		if kErros.IsNotFound(err) {
-			// shoot does not exist anymore - cleanup kubeconfig configmap
-			return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
-		}
-		// Error reading the object - requeue the request
-		return ctrl.Result{}, err
-	}
-
 	if shoot.DeletionTimestamp != nil {
 		// shoot is in deletion - cleanup kubeconfig configmap
 		return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
@@ -131,21 +293,10 @@ func (r *ShootStateReconciler) handleRequest(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, errors.New("no kube-apiserver advertised addresses in Shoot .status.advertisedAddresses")
 	}
 
-	ca, err := infodata.GetInfoData(shootState.Spec.Gardener, v1beta1constants.SecretNameCACluster)
+	caCert, err := clusterCaCert(shootState)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get ca infoData: %w", err)
+		return ctrl.Result{}, err
 	}
-
-	if ca == nil {
-		return ctrl.Result{}, errors.New("certificate authority not yet provisioned")
-	}
-
-	caInfoData, ok := ca.(*secrets.CertificateInfoData)
-	if !ok {
-		return ctrl.Result{}, errors.New("could not convert InfoData entry ca to CertificateInfoData")
-	}
-
-	caCert := caInfoData.Certificate
 
 	if err = util.ValidateCertificate(caCert); err != nil {
 		return ctrl.Result{}, fmt.Errorf("an error occured validating the ca certificate: %w", err)
@@ -211,10 +362,31 @@ func (r *ShootStateReconciler) handleRequest(ctx context.Context, req ctrl.Reque
 		kubeconfigConfigMap.Data[constants.DataKeyKubeconfig] = string(kubeconfig)
 		return nil
 	}); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create or update kubeconfig configmap %shootState/%shootState: %w", kubeconfigConfigMap.Namespace, kubeconfigConfigMap.Name, err)
+		return ctrl.Result{}, fmt.Errorf("failed to create or update kubeconfig configmap %s/%s: %w", kubeconfigConfigMap.Namespace, kubeconfigConfigMap.Name, err)
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// clusterCaCert reads the ca certificate from the gardener resource data
+func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
+	ca, err := infodata.GetInfoData(shootState.Spec.Gardener, v1beta1constants.SecretNameCACluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ca infoData: %w", err)
+	}
+
+	if ca == nil {
+		return nil, errors.New("certificate authority not yet provisioned")
+	}
+
+	caInfoData, ok := ca.(*secrets.CertificateInfoData)
+	if !ok {
+		return nil, errors.New("could not convert InfoData entry ca to CertificateInfoData")
+	}
+
+	caCert := caInfoData.Certificate
+
+	return caCert, nil
 }
 
 // kubeConfigRequest is a struct which holds information about a Kubeconfig to be generated.
@@ -290,7 +462,7 @@ func (k *kubeConfigRequest) generate() ([]byte, error) {
 					"get-client-certificate",
 				},
 				Env:                nil,
-				APIVersion:         clientcmdv1.SchemeGroupVersion.String(),
+				APIVersion:         clientauthenticationv1beta1.SchemeGroupVersion.String(),
 				InstallHint:        "",
 				ProvideClusterInfo: true,
 			},
@@ -347,8 +519,8 @@ func (k *kubeConfigRequest) generate() ([]byte, error) {
 	return runtime.Encode(clientcmdlatest.Codec, config)
 }
 
-// getConfig returns the util.ControllerManagerConfiguration of the ShootStateReconciler
-func (r *ShootStateReconciler) getConfig() *util.ControllerManagerConfiguration {
+// getConfig returns the util.ControllerManagerConfiguration of the ShootReconciler
+func (r *ShootReconciler) getConfig() *util.ControllerManagerConfiguration {
 	r.configMutex.RLock()
 	defer r.configMutex.RUnlock()
 
@@ -356,14 +528,14 @@ func (r *ShootStateReconciler) getConfig() *util.ControllerManagerConfiguration 
 }
 
 //// injectConfig is mainly used for tests to inject util.ControllerManagerConfiguration configuration
-//func (r *ShootStateReconciler) injectConfig(config *util.ControllerManagerConfiguration) {
+//func (r *ShootReconciler) injectConfig(config *util.ControllerManagerConfiguration) {
 //	r.configMutex.Lock()
 //	defer r.configMutex.Unlock()
 //
 //	r.Config = config
 //}
 
-func (r *ShootStateReconciler) increaseCounterForNamespace(namespace string) error {
+func (r *ShootReconciler) increaseCounterForNamespace(namespace string) error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -374,7 +546,7 @@ func (r *ShootStateReconciler) increaseCounterForNamespace(namespace string) err
 		counter = c + 1
 	}
 
-	if counter > r.getConfig().Controllers.ShootState.MaxConcurrentReconcilesPerNamespace {
+	if counter > r.getConfig().Controllers.Shoot.MaxConcurrentReconcilesPerNamespace {
 		return fmt.Errorf("max count reached")
 	}
 
@@ -383,7 +555,7 @@ func (r *ShootStateReconciler) increaseCounterForNamespace(namespace string) err
 	return nil
 }
 
-func (r *ShootStateReconciler) decreaseCounterForNamespace(namespace string) {
+func (r *ShootReconciler) decreaseCounterForNamespace(namespace string) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 

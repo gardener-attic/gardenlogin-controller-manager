@@ -96,15 +96,15 @@ func main() {
 
 	recorder := CreateRecorder(kube)
 
-	if err = (&controllers.ShootStateReconciler{
+	if err = (&controllers.ShootReconciler{
 		ClientSet:                   controllers.NewClientSet(config, mgr.GetClient(), kube),
 		Log:                         ctrl.Log.WithName("controllers").WithName("Terminal"),
 		Scheme:                      mgr.GetScheme(),
 		Recorder:                    recorder,
 		Config:                      cmConfig,
 		ReconcilerCountPerNamespace: map[string]int{},
-	}).SetupWithManager(mgr, cmConfig.Controllers.ShootState); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ShootState")
+	}).SetupWithManager(mgr, cmConfig.Controllers.Shoot); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Shoot")
 		os.Exit(1)
 	}
 
@@ -124,7 +124,6 @@ func main() {
 	setupLog.Info("setting up webhook server")
 
 	hookServer := &webhook.Server{
-		Port:    9443,
 		CertDir: certDir,
 	}
 	if err := mgr.Add(hookServer); err != nil {
@@ -150,5 +149,5 @@ func CreateRecorder(kubeClient kubernetes.Interface) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&v1.EventSinkImpl{Interface: v1.New(kubeClient.CoreV1().RESTClient()).Events("")})
 
-	return eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "ShootState"})
+	return eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "Shoot"})
 }
