@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gardener/garden-login-controller-manager/controllers"
-	"github.com/gardener/garden-login-controller-manager/internal/util"
-	"github.com/gardener/garden-login-controller-manager/webhooks"
+	"github.com/gardener/gardenlogin-controller-manager/controllers"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/webhooks"
 
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -57,7 +57,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&certDir, "cert-dir", "/tmp/k8s-webhook-server/serving-certs", "CertDir is the directory that contains the server key and certificate.")
-	flag.StringVar(&configFile, "config-file", "/etc/garden-login-controller-manager/config.yaml", "The path to the configuration file.")
+	flag.StringVar(&configFile, "config-file", "/etc/gardenlogin-controller-manager/config.yaml", "The path to the configuration file.")
 
 	opts := zap.Options{
 		Development: true,

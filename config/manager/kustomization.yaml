@@ -10,5 +10,5 @@ resources:
 
 images:
 - name: controller
-  newName: eu.gcr.io/gardener-project/gardener/garden-login-controller-manager
+  newName: eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager
   newTag: 0.1.0

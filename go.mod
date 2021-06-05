@@ -1,4 +1,4 @@
-module github.com/gardener/garden-login-controller-manager
+module github.com/gardener/gardenlogin-controller-manager
 
 go 1.16
 

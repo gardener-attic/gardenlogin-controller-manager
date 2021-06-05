@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Adds namespace to all resources.
-namespace: login-system # namespace should not start with garden- to prevent name clashes with project namespaces
+namespace: gardenlogin-system # namespace should not start with garden- to prevent name clashes with project namespaces
 
-namePrefix: garden-login- # must match with namePrefix defined in ../../default/kustomization.yaml
+namePrefix: gardenlogin- # must match with namePrefix defined in ../../default/kustomization.yaml
 
 commonLabels:
-  component: garden-login-manager
+  component: gardenlogin-manager
 
 resources:
 - ../../default

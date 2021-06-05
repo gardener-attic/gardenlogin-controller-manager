@@ -1,7 +1,7 @@
 {
-    "CN": "ca-gardener-garden-login",
+    "CN": "ca-gardener-gardenlogin",
     "hosts": [
-        "ca-gardener-garden-login"
+        "ca-gardener-gardenlogin"
     ],
     "key": {
         "algo": "rsa",

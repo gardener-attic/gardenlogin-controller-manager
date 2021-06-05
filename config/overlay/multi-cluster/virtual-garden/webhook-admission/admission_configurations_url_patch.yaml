@@ -9,4 +9,4 @@ metadata:
 webhooks:
   - clientConfig:
       url: https://$(SERVICE_NAME).$(SERVICE_NAMESPACE).svc/validate-configmap
-    name: validating-create-update-garden-login.gardener.cloud
+    name: validating-create-update-gardenlogin.gardener.cloud

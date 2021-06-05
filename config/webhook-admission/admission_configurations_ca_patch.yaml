@@ -9,4 +9,4 @@ metadata:
 webhooks:
   - clientConfig:
       caBundle: $(TLSCERT)
-    name: validating-create-update-garden-login.gardener.cloud
+    name: validating-create-update-gardenlogin.gardener.cloud

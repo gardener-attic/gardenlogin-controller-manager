@@ -7,8 +7,8 @@
 path_tls_output="../config/secret/tls"
 path_tls_config="../tls"
 
-ca_name="garden-login-ca"
-cert_name="garden-login-controller-manager-tls"
+ca_name="gardenlogin-ca"
+cert_name="gardenlogin-controller-manager-tls"
 
 cd "$(dirname "$0")"
 

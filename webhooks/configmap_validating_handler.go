@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/gardener/garden-login-controller-manager/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
 
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -60,7 +60,7 @@ func (h *ConfigmapValidator) validatingKubeconfigConfigMapFn(ctx context.Context
 	userInfo := admissionReq.UserInfo
 
 	// Validate that user has the permission to "manage" configmaps.
-	// Usually we only want to have the garden-login-controller-manager to have this permission and no one else, so that no one fiddles around with the kubeconfigs
+	// Usually we only want to have the gardenlogin-controller-manager to have this permission and no one else, so that no one fiddles around with the kubeconfigs
 	if allowed, err := h.canManageConfigmapsAccessReview(ctx, userInfo, c.Namespace, c.Name); err != nil {
 		return false, err.Error(), nil
 	} else if !allowed {

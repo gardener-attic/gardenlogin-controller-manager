@@ -44,7 +44,7 @@ type ShootControllerConfiguration struct {
 // ControllerManagerWebhookConfiguration defines the configuration of the admission webhooks.
 type ControllerManagerWebhookConfiguration struct {
 	// ConfigMapValidation defines the configuration of the validating webhook.
-	ConfigMapValidation ConfigMapValidatingWebhookConfiguration `yaml:"configmapValidation"`
+	ConfigMapValidation ConfigMapValidatingWebhookConfiguration `yaml:"configMapValidation"`
 }
 
 // ConfigMapValidatingWebhookConfiguration defines the configuration of the validating webhook.

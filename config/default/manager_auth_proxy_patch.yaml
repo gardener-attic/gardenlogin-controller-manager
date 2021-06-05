@@ -37,5 +37,5 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
-        - "--config-file=/etc/garden-login-controller-manager/config.yaml"
+        - "--config-file=/etc/gardenlogin-controller-manager/config.yaml"
         - "zap-devel=false"

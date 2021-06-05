@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Image URL to use all building/pushing image targets
-IMG ?= eu.gcr.io/gardener-project/gardener/garden-login-controller-manager:latest
+IMG ?= eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager:latest
 
 # Kube RBAC Proxy image to use
 IMG_RBAC_PROXY ?= quay.io/brancz/kube-rbac-proxy:v0.8.0
@@ -36,7 +36,7 @@ all: build
 # entire set of makefiles included in this invocation, looking for lines of the
 # file as xyz: ## something, and then pretty-format the target and help. Then,
 # if there's a line with ##@ something, that gets pretty-printed as a category.
-# More info on the usage of ANSI control characters for garden-login formatting:
+# More info on the usage of ANSI control characters for gardenlogin formatting:
 # https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
@@ -95,7 +95,7 @@ deploy-virtual: apply-image kustomize ## Multi-cluster use case: Deploy crd, adm
 deploy-singlecluster: apply-image ## Single-cluster use case: Deploy crd, admission configurations, controller etc. in the configured Kubernetes cluster
 	kustomize build config/overlay/single-cluster | kubectl apply -f -
 
-apply-image: manifests kustomize ## Apply garden-login controller and kube-rbac-proxy images according to the variables IMG and IMG_RBAC_PROXY
+apply-image: manifests kustomize ## Apply gardenlogin controller and kube-rbac-proxy images according to the variables IMG and IMG_RBAC_PROXY
 	cd config/manager && $(KUSTOMIZE) edit set image "controller=${IMG}"
 	cd config/default && $(KUSTOMIZE) edit set image "quay.io/brancz/kube-rbac-proxy=${IMG_RBAC_PROXY}"
 

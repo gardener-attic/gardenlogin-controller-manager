@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gardener/garden-login-controller-manager/api/v1alpha1"
-	"github.com/gardener/garden-login-controller-manager/api/v1alpha1/constants"
-	"github.com/gardener/garden-login-controller-manager/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1"
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
 
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -458,7 +458,7 @@ func (k *kubeConfigRequest) generate() ([]byte, error) {
 			Exec: &clientcmdv1.ExecConfig{
 				Command: "kubectl",
 				Args: []string{
-					"garden-login",
+					"gardenlogin",
 					"get-client-certificate",
 				},
 				Env:                nil,
