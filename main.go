@@ -17,13 +17,9 @@ import (
 
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -86,21 +82,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := mgr.GetConfig()
-
-	kube, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "could not create kubernetes client")
-		os.Exit(1)
-	}
-
-	recorder := CreateRecorder(kube)
-
 	if err = (&controllers.ShootReconciler{
-		ClientSet:                   controllers.NewClientSet(config, mgr.GetClient(), kube),
-		Log:                         ctrl.Log.WithName("controllers").WithName("Terminal"),
+		Client:                      mgr.GetClient(),
+		Log:                         ctrl.Log.WithName("controllers").WithName("Shoot"),
 		Scheme:                      mgr.GetScheme(),
-		Recorder:                    recorder,
 		Config:                      cmConfig,
 		ReconcilerCountPerNamespace: map[string]int{},
 	}).SetupWithManager(mgr, cmConfig.Controllers.Shoot); err != nil {
@@ -143,11 +128,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-func CreateRecorder(kubeClient kubernetes.Interface) record.EventRecorder {
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&v1.EventSinkImpl{Interface: v1.New(kubeClient.CoreV1().RESTClient()).Events("")})
-
-	return eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "Shoot"})
 }

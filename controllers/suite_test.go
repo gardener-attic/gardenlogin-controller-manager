@@ -4,60 +4,88 @@ SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener con
 SPDX-License-Identifier: Apache-2.0
 */
 
-package controllers
+package controllers_test
 
 import (
-	"path/filepath"
+	"context"
 	"testing"
+	"time"
 
+	"github.com/gardener/gardenlogin-controller-manager/controllers"
+	"github.com/gardener/gardenlogin-controller-manager/internal/test"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/webhooks"
+
+	gardenenvtest "github.com/gardener/gardener/pkg/envtest"
+	"github.com/gardener/gardener/test/framework"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-//var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
+const (
+	randomLength = 5
+	charset      = "abcdefghijklmnopqrstuvwxyz0123456789"
+)
+
+var (
+	k8sClient       client.Client
+	testEnv         *gardenenvtest.GardenerTestEnvironment
+	ctx             context.Context
+	cancel          context.CancelFunc
+	k8sManager      ctrl.Manager
+	cmConfig        *util.ControllerManagerConfiguration
+	validator       *webhooks.ConfigmapValidator
+	shootReconciler *controllers.ShootReconciler
+)
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
+	SetDefaultEventuallyTimeout(30 * time.Second)
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Controller Suite",
 		[]Reporter{printer.NewlineReporter{}})
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	ctx, cancel = context.WithCancel(context.TODO())
 
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: false,
+	cmConfig = test.DefaultConfiguration()
+
+	validator = &webhooks.ConfigmapValidator{
+		Log:    ctrl.Log.WithName("webhooks").WithName("ConfigmapValidation"),
+		Config: cmConfig,
 	}
 
-	cfg, err := testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	environment := test.New(validator)
+	testEnv = environment.GardenEnv
+	k8sManager = environment.K8sManager
+	k8sClient = environment.K8sClient
 
-	//+kubebuilder:scaffold:scheme
+	shootReconciler = &controllers.ShootReconciler{
+		Client:                      k8sManager.GetClient(),
+		Log:                         ctrl.Log.WithName("controllers").WithName("Shoot"),
+		Scheme:                      k8sManager.GetScheme(),
+		Config:                      cmConfig,
+		ReconcilerCountPerNamespace: map[string]int{},
+	}
+	err := shootReconciler.SetupWithManager(k8sManager, cmConfig.Controllers.Shoot)
+	Expect(err).ToNot(HaveOccurred())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
-
+	environment.Start()
 }, 60)
 
 var _ = AfterSuite(func() {
+	cancel()
+	By("running cleanup actions")
+	framework.RunCleanupActions()
+
 	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
-})
+	Expect(testEnv.Stop()).To(Succeed())
+}, 60)

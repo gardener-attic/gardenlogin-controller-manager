@@ -6,8 +6,6 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: validating-webhook-configuration
-  labels:
-   gardenlogin: admission-configuration # must match with label selector used in controller reconcile
 webhooks:
   - failurePolicy: Fail
     name: validating-create-update-gardenlogin.gardener.cloud

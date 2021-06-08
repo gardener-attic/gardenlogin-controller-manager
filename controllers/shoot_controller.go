@@ -32,12 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	clientauthenticationv1beta1 "k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
-	"k8s.io/client-go/rest"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 	clientcmdv1 "k8s.io/client-go/tools/clientcmd/api/v1"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -53,8 +50,7 @@ import (
 // ShootReconciler reconciles a Shoot object
 type ShootReconciler struct {
 	Scheme *runtime.Scheme
-	*ClientSet
-	Recorder                    record.EventRecorder
+	client.Client
 	Log                         logr.Logger
 	Config                      *util.ControllerManagerConfiguration
 	ReconcilerCountPerNamespace map[string]int
@@ -348,7 +344,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 	ownerReference.BlockOwnerDeletion = pointer.BoolPtr(false)
 
 	// store the kubeconfig in a ConfigMap, as it does not contain any credentials or other secret data
-	if _, err = ctrl.CreateOrUpdate(ctx, r.ClientSet, kubeconfigConfigMap, func() error {
+	if _, err = ctrl.CreateOrUpdate(ctx, r.Client, kubeconfigConfigMap, func() error {
 		kubeconfigConfigMap.OwnerReferences = []metav1.OwnerReference{*ownerReference}
 
 		if kubeconfigConfigMap.Labels == nil {
@@ -572,14 +568,4 @@ func (r *ShootReconciler) decreaseCounterForNamespace(namespace string) {
 	} else {
 		r.ReconcilerCountPerNamespace[namespace] = counter
 	}
-}
-
-type ClientSet struct {
-	*rest.Config
-	client.Client
-	Kubernetes kubernetes.Interface
-}
-
-func NewClientSet(config *rest.Config, client client.Client, kubernetes kubernetes.Interface) *ClientSet {
-	return &ClientSet{config, client, kubernetes}
 }

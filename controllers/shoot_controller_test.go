@@ -1,0 +1,326 @@
+package controllers_test
+
+import (
+	"time"
+
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
+	"github.com/gardener/gardenlogin-controller-manager/internal/test"
+
+	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
+	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	"github.com/gardener/gardener/pkg/utils/gardener"
+	"github.com/gardener/gardener/pkg/utils/secrets"
+	"github.com/gardener/gardener/pkg/utils/test/matchers"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	kErros "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var _ = Describe("ShootController", func() {
+
+	const (
+		infrastructureType = "foo-infra"
+		cloudProfile       = "cloudprofile-" + infrastructureType
+		machineType        = "foo-machine-type"
+		networkType        = "foo-network"
+		osType             = "foo-os"
+		region             = "foo-region"
+		version            = "1.0.0"
+		sharedNs           = "shared-ns"
+		sharedInfraSecret  = "shared-infra-secret"
+
+		timeout  = time.Second * 10
+		interval = time.Millisecond * 250
+	)
+	BeforeEach(func() {
+		By("ensuring that required resources for shoot and shootstate exist")
+		Expect(k8sClient.Create(ctx, &gardencorev1beta1.ControllerRegistration{
+			ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+			Spec: gardencorev1beta1.ControllerRegistrationSpec{
+				Resources: []gardencorev1beta1.ControllerResource{
+					{
+						Kind:    "Network",
+						Type:    networkType,
+						Primary: pointer.BoolPtr(true),
+					},
+					{
+						Kind:    "OperatingSystemConfig",
+						Type:    osType,
+						Primary: pointer.BoolPtr(true),
+					},
+					{
+						Kind:    "Infrastructure",
+						Type:    infrastructureType,
+						Primary: pointer.BoolPtr(true),
+					},
+					{
+						Kind:    "ControlPlane",
+						Type:    infrastructureType,
+						Primary: pointer.BoolPtr(true),
+					},
+					{
+						Kind:    "Worker",
+						Type:    infrastructureType,
+						Primary: pointer.BoolPtr(true),
+					},
+				},
+			},
+		})).
+			To(Or(Succeed(), matchers.BeAlreadyExistsError()))
+
+		Expect(k8sClient.Create(ctx, &gardencorev1beta1.CloudProfile{
+			ObjectMeta: metav1.ObjectMeta{Name: cloudProfile},
+			Spec: gardencorev1beta1.CloudProfileSpec{
+				CABundle: nil,
+				Kubernetes: gardencorev1beta1.KubernetesSettings{
+					Versions: []gardencorev1beta1.ExpirableVersion{
+						{Version: version},
+					},
+				},
+				MachineImages: []gardencorev1beta1.MachineImage{
+					{
+						Name: osType,
+						Versions: []gardencorev1beta1.MachineImageVersion{
+							{
+								ExpirableVersion: gardencorev1beta1.ExpirableVersion{
+									Version: version,
+								},
+							},
+						},
+					},
+				},
+				MachineTypes: []gardencorev1beta1.MachineType{
+					{
+						CPU:    resource.MustParse("42"),
+						Memory: resource.MustParse("42"),
+						Name:   machineType,
+						Usable: pointer.BoolPtr(true),
+					},
+				},
+				Regions: []gardencorev1beta1.Region{
+					{
+						Name: region,
+					},
+				},
+				Type: infrastructureType,
+			},
+		})).
+			To(Or(Succeed(), matchers.BeAlreadyExistsError()))
+
+		Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: sharedNs}})).To(Or(Succeed(), matchers.BeAlreadyExistsError()))
+		Expect(k8sClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: sharedInfraSecret, Namespace: sharedNs}})).To(Or(Succeed(), matchers.BeAlreadyExistsError()))
+	})
+	Describe("reconcile shoot", func() {
+		var (
+			namespace    string
+			configMapKey types.NamespacedName
+			ca           *secrets.Certificate
+		)
+
+		const (
+			name          = "foo-shoot"
+			secretBinding = "foo-secret-binding"
+			domain        = "foo.bar.baz"
+		)
+
+		BeforeEach(func() {
+			suffix := test.StringWithCharset(randomLength, charset)
+
+			namespace = "test-namespace-" + suffix
+			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+				Labels: map[string]string{
+					v1beta1constants.GardenRole: v1beta1constants.GardenRoleProject,
+				},
+			}})).To(Succeed())
+
+			Expect(k8sClient.Create(ctx, &gardencorev1beta1.Project{
+				ObjectMeta: metav1.ObjectMeta{Name: "p" + suffix},
+				Spec: gardencorev1beta1.ProjectSpec{
+					Namespace: pointer.StringPtr(namespace),
+				},
+			})).To(Succeed())
+
+			Expect(k8sClient.Create(ctx, &gardencorev1beta1.SecretBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretBinding,
+					Namespace: namespace,
+				},
+				SecretRef: corev1.SecretReference{
+					Name:      sharedInfraSecret,
+					Namespace: sharedNs,
+				},
+			})).To(Succeed())
+
+			shoot := &gardencorev1beta1.Shoot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+				Spec: gardencorev1beta1.ShootSpec{
+					CloudProfileName: cloudProfile,
+					DNS: &gardencorev1beta1.DNS{
+						Domain: pointer.StringPtr(domain),
+					},
+					Kubernetes: gardencorev1beta1.Kubernetes{
+						Version: version,
+					},
+					Networking: gardencorev1beta1.Networking{
+						Type: networkType,
+					},
+					Provider: gardencorev1beta1.Provider{
+						Type:                 infrastructureType,
+						ControlPlaneConfig:   nil,
+						InfrastructureConfig: nil,
+						Workers: []gardencorev1beta1.Worker{
+							{
+								Name: "foo-worker",
+								Machine: gardencorev1beta1.Machine{
+									Type: machineType,
+									Image: &gardencorev1beta1.ShootMachineImage{
+										Name:    osType,
+										Version: pointer.StringPtr(version),
+									},
+								},
+								Maximum: 1,
+								Minimum: 1,
+							},
+						},
+					},
+					Region:            region,
+					SecretBindingName: secretBinding,
+				},
+			}
+			Expect(k8sClient.Create(ctx, shoot)).To(Succeed())
+
+			By("patching shoot status")
+			shootCopy := shoot.DeepCopy()
+			shoot.Status.AdvertisedAddresses = []gardencorev1beta1.ShootAdvertisedAddress{
+				{
+					Name: "shoot-address1",
+					URL:  "https://api." + domain,
+				},
+				{
+					Name: "shoot-address2",
+					URL:  "https://api2." + domain,
+				},
+			}
+			Expect(k8sClient.Status().Patch(ctx, shoot, client.MergeFrom(shootCopy))).To(Succeed())
+
+			ca = generateCaCert()
+			caInfoData := secrets.CertificateInfoData{
+				Certificate: ca.CertificatePEM,
+			}
+
+			caRaw, err := caInfoData.Marshal()
+			Expect(err).ToNot(HaveOccurred())
+
+			shootState := &gardencorev1alpha1.ShootState{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      shoot.Name,
+					Namespace: namespace,
+				},
+				Spec: gardencorev1alpha1.ShootStateSpec{
+					Gardener: []gardencorev1alpha1.GardenerResourceData{
+						{
+							Name: v1beta1constants.SecretNameCACluster,
+							Type: "certificate",
+							Data: runtime.RawExtension{Raw: caRaw},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, shootState)).To(Succeed())
+
+			configMapKey = types.NamespacedName{
+				Namespace: namespace,
+				Name:      shoot.Name + ".kubeconfig",
+			}
+		})
+
+		It("should create kubeconfig configmap", func() {
+			var kubeconfig string
+			Eventually(func() bool {
+				configMap := &corev1.ConfigMap{}
+				err := k8sClient.Get(ctx, configMapKey, configMap)
+				if err != nil {
+					return false
+				}
+
+				kubeconfig = configMap.Data[constants.DataKeyKubeconfig]
+				return kubeconfig != ""
+			}, timeout, interval).Should(BeTrue())
+
+			clientConfig, err := clientcmd.NewClientConfigFromBytes([]byte(kubeconfig))
+			Expect(err).ToNot(HaveOccurred())
+
+			rawConfig, err := clientConfig.RawConfig()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(rawConfig.Clusters).To(HaveLen(2))
+			currentCluster := rawConfig.Contexts[rawConfig.CurrentContext].Cluster
+			Expect(rawConfig.Clusters[currentCluster].Server).To(Equal("https://api." + domain))
+			Expect(rawConfig.Clusters[currentCluster].CertificateAuthorityData).To(Equal(ca.CertificatePEM))
+
+			Expect(rawConfig.Contexts).To(HaveLen(2))
+
+			Expect(rawConfig.AuthInfos).To(HaveLen(1))
+			currentAuthInfo := rawConfig.Contexts[rawConfig.CurrentContext].AuthInfo
+			Expect(rawConfig.AuthInfos[currentAuthInfo].Exec.Command).To(Equal("kubectl"))
+			Expect(rawConfig.AuthInfos[currentAuthInfo].Exec.Args).To(Equal([]string{
+				"gardenlogin",
+				"get-client-certificate",
+			}))
+		})
+
+		It("should delete kubeconfig configmap", func() {
+			By("deleting shoot")
+			shoot := &gardencorev1beta1.Shoot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+			}
+			shootCopy := shoot.DeepCopy()
+			shoot.Annotations = map[string]string{
+				gardener.ConfirmationDeletion: "true",
+			}
+			Expect(k8sClient.Patch(ctx, shoot, client.MergeFrom(shootCopy))).To(Succeed())
+			Expect(k8sClient.Delete(ctx, shoot)).To(Succeed())
+
+			By("ensuring shoot is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &gardencorev1beta1.Shoot{})
+				return kErros.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			By("verifying configmap is deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, configMapKey, &corev1.ConfigMap{})
+				return kErros.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+		})
+	})
+
+})
+
+func generateCaCert() *secrets.Certificate {
+	csc := &secrets.CertificateSecretConfig{
+		Name:       "ca-test",
+		CommonName: "ca-test",
+		CertType:   secrets.CACert,
+	}
+	caCertificate, err := csc.GenerateCertificate()
+	Expect(err).ToNot(HaveOccurred())
+
+	return caCertificate
+}
