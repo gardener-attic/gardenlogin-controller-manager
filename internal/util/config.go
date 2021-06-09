@@ -34,10 +34,10 @@ type ControllerManagerControllerConfiguration struct {
 
 // ShootControllerConfiguration defines the configuration of the Shoot controller.
 type ShootControllerConfiguration struct {
-	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 15.
+	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run. Defaults to 50.
 	MaxConcurrentReconciles int `yaml:"maxConcurrentReconciles"`
 
-	// MaxConcurrentReconciles is the maximum number of concurrent Reconciles which can be run per Namespace (independent of the user who created the Shoot resource). Defaults to 3.
+	// MaxConcurrentReconcilesPerNamespace is the maximum number of concurrent Reconciles which can be run per Namespace (independent of the user who created the Shoot resource). Defaults to 3.
 	MaxConcurrentReconcilesPerNamespace int `yaml:"maxConcurrentReconcilesPerNamespace"`
 }
 

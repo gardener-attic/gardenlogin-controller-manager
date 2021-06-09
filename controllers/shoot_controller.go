@@ -312,7 +312,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, errors.New("cluster identity configmap data not set")
 	}
 
-	kubeconfigRequest := kubeConfigRequest{
+	kubeconfigRequest := kubeconfigRequest{
 		namespace:             shoot.Namespace,
 		shootName:             shoot.Name,
 		gardenClusterIdentity: clusterIdentityConfigMap.Data[v1beta1constants.ClusterIdentity],
@@ -385,8 +385,8 @@ func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
 	return caCert, nil
 }
 
-// kubeConfigRequest is a struct which holds information about a Kubeconfig to be generated.
-type kubeConfigRequest struct {
+// kubeconfigRequest is a struct which holds information about a Kubeconfig to be generated.
+type kubeconfigRequest struct {
 	// cluster holds all the cluster on which the kube-apiserver can be reached
 	clusters []cluster
 	// namespace is the namespace where the shoot resides
@@ -397,7 +397,7 @@ type kubeConfigRequest struct {
 	gardenClusterIdentity string
 }
 
-// cluster holds the data to describe and connect to a kuberentes cluster
+// cluster holds the data to describe and connect to a kubernetes cluster
 type cluster struct {
 	// name is the name of the shoot advertised address, usually "external", "internal" or "unmanaged"
 	name string
@@ -410,7 +410,7 @@ type cluster struct {
 }
 
 // validate validates the kubeconfig request by ensuring that all required fields are set
-func (k *kubeConfigRequest) validate() error {
+func (k *kubeconfigRequest) validate() error {
 	if len(k.clusters) == 0 {
 		return errors.New("missing clusters")
 	}
@@ -440,10 +440,9 @@ func (k *kubeConfigRequest) validate() error {
 	return nil
 }
 
-// generate generates a Kubernetes kubeconfig for communicating with the kube-apiserver by using
-// a client certificate. If <basicAuthUser> and <basicAuthPass> are non-empty string, a second user object
-// containing the Basic Authentication credentials is added to the Kubeconfig.
-func (k *kubeConfigRequest) generate() ([]byte, error) {
+// generate generates a Kubernetes kubeconfig for communicating with the kube-apiserver
+// by exec'ing the gardenlogin plugin, which fetches a client certificate.
+func (k *kubeconfigRequest) generate() ([]byte, error) {
 	authName := fmt.Sprintf("%s--%s", k.namespace, k.shootName)
 	name := fmt.Sprintf("%s-%s", authName, k.clusters[0].name)
 

@@ -38,4 +38,4 @@ spec:
         - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
         - "--config-file=/etc/gardenlogin-controller-manager/config.yaml"
-        - "zap-devel=false"
+        - "--zap-devel=false"

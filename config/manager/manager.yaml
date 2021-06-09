@@ -36,7 +36,7 @@ spec:
         args:
         - "--leader-elect"
         - "--config-file=/etc/gardenlogin-controller-manager/config.yaml"
-        - "zap-devel=false"
+        - "--zap-devel=false"
         image: controller:latest
         name: manager
         securityContext:
