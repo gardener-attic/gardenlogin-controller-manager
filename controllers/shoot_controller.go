@@ -66,10 +66,10 @@ type ShootReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *ShootReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("shoot", req.NamespacedName)
+	log := r.Log.WithValues("shoot", req.NamespacedName)
 
 	if err := r.increaseCounterForNamespace(req.Namespace); err != nil {
-		r.Log.Info("maximum parallel reconciles reached for namespace - requeuing the req", "namespace", req.Namespace, "name", req.Name)
+		log.Info("maximum parallel reconciles reached for namespace - requeuing the req")
 
 		return ctrl.Result{
 			RequeueAfter: wait.Jitter(time.Duration(int64(100*time.Millisecond)), 50), // requeue after 100ms - 5s
@@ -111,25 +111,27 @@ func (r *ShootReconciler) SetupWithManager(mgr ctrl.Manager, config util.ShootCo
 func (r *ShootReconciler) shootPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := r.Log.WithValues("event", e)
+
 			if e.ObjectOld == nil {
-				r.Log.Error(nil, "Update event has no old runtime object to update", "event", e)
+				log.Error(nil, "Update event has no old runtime object to update")
 				return false
 			}
 
 			if e.ObjectNew == nil {
-				r.Log.Error(nil, "Update event has no new runtime object for update", "event", e)
+				log.Error(nil, "Update event has no new runtime object for update")
 				return false
 			}
 
 			old, ok := e.ObjectOld.(*gardencorev1beta1.Shoot)
 			if !ok {
-				r.Log.Error(nil, "Update event old runtime object cannot be converted to Shoot", "event", e)
+				log.Error(nil, "Update event old runtime object cannot be converted to Shoot")
 				return false
 			}
 
 			new, ok := e.ObjectNew.(*gardencorev1beta1.Shoot)
 			if !ok {
-				r.Log.Error(nil, "Update event new runtime object cannot be converted to Shoot", "event", e)
+				log.Error(nil, "Update event new runtime object cannot be converted to Shoot")
 				return false
 			}
 
@@ -160,25 +162,27 @@ func (r *ShootReconciler) shootPredicate() predicate.Funcs {
 func (r *ShootReconciler) configMapPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := r.Log.WithValues("event", e)
+
 			if e.ObjectOld == nil {
-				r.Log.Error(nil, "Update event has no old runtime object to update", "event", e)
+				log.Error(nil, "Update event has no old runtime object to update")
 				return false
 			}
 
 			if e.ObjectNew == nil {
-				r.Log.Error(nil, "Update event has no new runtime object for update", "event", e)
+				log.Error(nil, "Update event has no new runtime object for update")
 				return false
 			}
 
 			old, ok := e.ObjectOld.(*corev1.ConfigMap)
 			if !ok {
-				r.Log.Error(nil, "Update event old runtime object cannot be converted to ConfigMap", "event", e)
+				log.Error(nil, "Update event old runtime object cannot be converted to ConfigMap")
 				return false
 			}
 
 			new, ok := e.ObjectNew.(*corev1.ConfigMap)
 			if !ok {
-				r.Log.Error(nil, "Update event new runtime object cannot be converted to ConfigMap", "event", e)
+				log.Error(nil, "Update event new runtime object cannot be converted to ConfigMap")
 				return false
 			}
 
@@ -208,37 +212,39 @@ func (r *ShootReconciler) configMapPredicate() predicate.Funcs {
 func (r *ShootReconciler) shootStatePredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := r.Log.WithValues("event", e)
+
 			if e.ObjectOld == nil {
-				r.Log.Error(nil, "Update event has no old runtime object to update", "event", e)
+				log.Error(nil, "Update event has no old runtime object to update")
 				return false
 			}
 
 			if e.ObjectNew == nil {
-				r.Log.Error(nil, "Update event has no new runtime object for update", "event", e)
+				log.Error(nil, "Update event has no new runtime object for update")
 				return false
 			}
 
 			old, ok := e.ObjectOld.(*gardencorev1alpha1.ShootState)
 			if !ok {
-				r.Log.Error(nil, "Update event old runtime object cannot be converted to ShootState", "event", e)
+				log.Error(nil, "Update event old runtime object cannot be converted to ShootState")
 				return false
 			}
 
 			new, ok := e.ObjectNew.(*gardencorev1alpha1.ShootState)
 			if !ok {
-				r.Log.Error(nil, "Update event new runtime object cannot be converted to ShootState", "event", e)
+				log.Error(nil, "Update event new runtime object cannot be converted to ShootState")
 				return false
 			}
 
 			oldCaCert, err := clusterCaCert(old)
 			if err != nil {
-				r.Log.Error(nil, "Update event failed to read cluster ca from old ShootState", "event", e)
+				log.Error(nil, "Update event failed to read cluster ca from old ShootState")
 				return false
 			}
 
 			newCaCert, err := clusterCaCert(new)
 			if err != nil {
-				r.Log.Error(nil, "Update event failed to read cluster ca from new ShootState", "event", e)
+				log.Error(nil, "Update event failed to read cluster ca from new ShootState")
 				return false
 			}
 
