@@ -1,8 +1,11 @@
 package controllers_test
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1"
 	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
 	"github.com/gardener/gardenlogin-controller-manager/internal/test"
 
@@ -35,6 +38,8 @@ var _ = Describe("ShootController", func() {
 		osType             = "foo-os"
 		region             = "foo-region"
 		version            = "1.0.0"
+		k8sVersion         = "1.20.0"
+		k8sVersionLegacy   = "1.19.0" // legacy kubeconfig should be rendered
 		sharedNs           = "shared-ns"
 		sharedInfraSecret  = "shared-infra-secret"
 
@@ -83,7 +88,8 @@ var _ = Describe("ShootController", func() {
 				CABundle: nil,
 				Kubernetes: gardencorev1beta1.KubernetesSettings{
 					Versions: []gardencorev1beta1.ExpirableVersion{
-						{Version: version},
+						{Version: k8sVersion},
+						{Version: k8sVersionLegacy},
 					},
 				},
 				MachineImages: []gardencorev1beta1.MachineImage{
@@ -124,6 +130,10 @@ var _ = Describe("ShootController", func() {
 			namespace    string
 			configMapKey types.NamespacedName
 			ca           *secrets.Certificate
+
+			shoot               *gardencorev1beta1.Shoot
+			shootState          *gardencorev1alpha1.ShootState
+			advertisedAddresses []gardencorev1beta1.ShootAdvertisedAddress
 		)
 
 		const (
@@ -161,7 +171,7 @@ var _ = Describe("ShootController", func() {
 				},
 			})).To(Succeed())
 
-			shoot := &gardencorev1beta1.Shoot{
+			shoot = &gardencorev1beta1.Shoot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
 					Namespace: namespace,
@@ -172,7 +182,7 @@ var _ = Describe("ShootController", func() {
 						Domain: pointer.StringPtr(domain),
 					},
 					Kubernetes: gardencorev1beta1.Kubernetes{
-						Version: version,
+						Version: k8sVersion,
 					},
 					Networking: gardencorev1beta1.Networking{
 						Type: networkType,
@@ -200,11 +210,8 @@ var _ = Describe("ShootController", func() {
 					SecretBindingName: secretBinding,
 				},
 			}
-			Expect(k8sClient.Create(ctx, shoot)).To(Succeed())
 
-			By("patching shoot status")
-			shootCopy := shoot.DeepCopy()
-			shoot.Status.AdvertisedAddresses = []gardencorev1beta1.ShootAdvertisedAddress{
+			advertisedAddresses = []gardencorev1beta1.ShootAdvertisedAddress{
 				{
 					Name: "shoot-address1",
 					URL:  "https://api." + domain,
@@ -214,7 +221,6 @@ var _ = Describe("ShootController", func() {
 					URL:  "https://api2." + domain,
 				},
 			}
-			Expect(k8sClient.Status().Patch(ctx, shoot, client.MergeFrom(shootCopy))).To(Succeed())
 
 			ca = generateCaCert()
 			caInfoData := secrets.CertificateInfoData{
@@ -224,7 +230,7 @@ var _ = Describe("ShootController", func() {
 			caRaw, err := caInfoData.Marshal()
 			Expect(err).ToNot(HaveOccurred())
 
-			shootState := &gardencorev1alpha1.ShootState{
+			shootState = &gardencorev1alpha1.ShootState{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      shoot.Name,
 					Namespace: namespace,
@@ -239,7 +245,6 @@ var _ = Describe("ShootController", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(ctx, shootState)).To(Succeed())
 
 			configMapKey = types.NamespacedName{
 				Namespace: namespace,
@@ -247,7 +252,20 @@ var _ = Describe("ShootController", func() {
 			}
 		})
 
+		JustBeforeEach(func() {
+			Expect(k8sClient.Create(ctx, shoot)).To(Succeed())
+
+			By("patching shoot status")
+			shootCopy := shoot.DeepCopy()
+			shoot.Status.AdvertisedAddresses = advertisedAddresses
+			Expect(k8sClient.Status().Patch(ctx, shoot, client.MergeFrom(shootCopy))).To(Succeed())
+
+			Expect(k8sClient.Create(ctx, shootState)).To(Succeed())
+		})
+
 		It("should create kubeconfig configmap", func() {
+			shoot.Spec.Kubernetes.Version = k8sVersion
+
 			var kubeconfig string
 			Eventually(func() bool {
 				configMap := &corev1.ConfigMap{}
@@ -270,6 +288,20 @@ var _ = Describe("ShootController", func() {
 			currentCluster := rawConfig.Contexts[rawConfig.CurrentContext].Cluster
 			Expect(rawConfig.Clusters[currentCluster].Server).To(Equal("https://api." + domain))
 			Expect(rawConfig.Clusters[currentCluster].CertificateAuthorityData).To(Equal(ca.CertificatePEM))
+			Expect(rawConfig.Clusters[currentCluster].Extensions).ToNot(BeEmpty())
+
+			execConfig := rawConfig.Clusters[currentCluster].Extensions["client.authentication.k8s.io/exec"].(*runtime.Unknown)
+			Expect(execConfig.Raw).ToNot(BeNil())
+
+			var extension v1alpha1.ExecPluginConfig
+			Expect(json.Unmarshal(execConfig.Raw, &extension)).To(Succeed())
+			Expect(extension).To(Equal(v1alpha1.ExecPluginConfig{
+				ShootRef: v1alpha1.ShootRef{
+					Namespace: namespace,
+					Name:      name,
+				},
+				GardenClusterIdentity: "envtest",
+			}))
 
 			Expect(rawConfig.Contexts).To(HaveLen(2))
 
@@ -308,6 +340,52 @@ var _ = Describe("ShootController", func() {
 				err := k8sClient.Get(ctx, configMapKey, &corev1.ConfigMap{})
 				return kErros.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
+		})
+
+		Context("legacy kubeconfig", func() {
+			BeforeEach(func() {
+				By("having shoot kubernetes version < v1.20.0")
+				shoot.Spec.Kubernetes.Version = k8sVersionLegacy
+			})
+
+			It("should create legacy kubeconfig configmap", func() {
+				var kubeconfig string
+				Eventually(func() bool {
+					configMap := &corev1.ConfigMap{}
+					err := k8sClient.Get(ctx, configMapKey, configMap)
+					if err != nil {
+						return false
+					}
+
+					kubeconfig = configMap.Data[constants.DataKeyKubeconfig]
+					return kubeconfig != ""
+				}, timeout, interval).Should(BeTrue())
+
+				clientConfig, err := clientcmd.NewClientConfigFromBytes([]byte(kubeconfig))
+				Expect(err).ToNot(HaveOccurred())
+
+				rawConfig, err := clientConfig.RawConfig()
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(rawConfig.Clusters).To(HaveLen(2))
+				currentCluster := rawConfig.Contexts[rawConfig.CurrentContext].Cluster
+				Expect(rawConfig.Clusters[currentCluster].Server).To(Equal("https://api." + domain))
+				Expect(rawConfig.Clusters[currentCluster].CertificateAuthorityData).To(Equal(ca.CertificatePEM))
+				Expect(rawConfig.Clusters[currentCluster].Extensions).To(BeEmpty())
+
+				Expect(rawConfig.Contexts).To(HaveLen(2))
+
+				Expect(rawConfig.AuthInfos).To(HaveLen(1))
+				currentAuthInfo := rawConfig.Contexts[rawConfig.CurrentContext].AuthInfo
+				Expect(rawConfig.AuthInfos[currentAuthInfo].Exec.Command).To(Equal("kubectl"))
+				Expect(rawConfig.AuthInfos[currentAuthInfo].Exec.Args).To(Equal([]string{
+					"gardenlogin",
+					"get-client-certificate",
+					"--name=foo-shoot",
+					fmt.Sprintf("--namespace=%s", namespace),
+					"--garden-cluster-identity=envtest",
+				}))
+			})
 		})
 	})
 

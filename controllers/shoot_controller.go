@@ -18,6 +18,7 @@ import (
 	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
 	"github.com/gardener/gardenlogin-controller-manager/internal/util"
 
+	"github.com/Masterminds/semver"
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -341,7 +342,20 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("validation failed for kubeconfig request: %w", err)
 	}
 
-	kubeconfig, err := kubeconfigRequest.generate()
+	// parse kubernetes version to determine if a legacy kubeconfig should be created.
+	c, err := semver.NewConstraint("< v1.20.0")
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to parse constraint: %w", err)
+	}
+
+	version, err := semver.NewVersion(shoot.Spec.Kubernetes.Version)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("could not parse kubernetes version %s of shoot cluster: %w", shoot.Spec.Kubernetes.Version, err)
+	}
+
+	legacy := c.Check(version)
+
+	kubeconfig, err := kubeconfigRequest.generate(legacy)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("generation failed for kubeconfig request: %w", err)
 	}
@@ -448,9 +462,21 @@ func (k *kubeconfigRequest) validate() error {
 
 // generate generates a Kubernetes kubeconfig for communicating with the kube-apiserver
 // by exec'ing the gardenlogin plugin, which fetches a client certificate.
-func (k *kubeconfigRequest) generate() ([]byte, error) {
+// If legacy is false, the shoot reference and garden cluster identity is passed via the cluster extensions,
+// which is supported starting with kubectl version v1.20.0.
+// If legacy is true, the shoot reference and garden cluster identity are passed as command line flags to the plugin
+func (k *kubeconfigRequest) generate(legacy bool) ([]byte, error) {
 	authName := fmt.Sprintf("%s--%s", k.namespace, k.shootName)
 	name := fmt.Sprintf("%s-%s", authName, k.clusters[0].name)
+
+	var legacyArgs []string
+	if legacy {
+		legacyArgs = []string{
+			fmt.Sprintf("--name=%s", k.shootName),
+			fmt.Sprintf("--namespace=%s", k.namespace),
+			fmt.Sprintf("--garden-cluster-identity=%s", k.gardenClusterIdentity),
+		}
+	}
 
 	var authInfos []clientcmdv1.NamedAuthInfo
 	authInfos = append(authInfos, clientcmdv1.NamedAuthInfo{
@@ -458,10 +484,12 @@ func (k *kubeconfigRequest) generate() ([]byte, error) {
 		AuthInfo: clientcmdv1.AuthInfo{
 			Exec: &clientcmdv1.ExecConfig{
 				Command: "kubectl",
-				Args: []string{
+				Args: append([]string{
 					"gardenlogin",
 					"get-client-certificate",
 				},
+					legacyArgs...,
+				),
 				Env:                nil,
 				APIVersion:         clientauthenticationv1beta1.SchemeGroupVersion.String(),
 				InstallHint:        "",
@@ -485,9 +513,22 @@ func (k *kubeconfigRequest) generate() ([]byte, error) {
 		GardenClusterIdentity: k.gardenClusterIdentity,
 	}
 
-	raw, err := json.Marshal(extension)
-	if err != nil {
-		return nil, fmt.Errorf("could not json marshal cluster extension: %w", err)
+	var clusterExtensions []clientcmdv1.NamedExtension
+
+	if !legacy {
+		raw, err := json.Marshal(extension)
+		if err != nil {
+			return nil, fmt.Errorf("could not json marshal cluster extension: %w", err)
+		}
+
+		clusterExtensions = []clientcmdv1.NamedExtension{
+			{
+				Name: "client.authentication.k8s.io/exec",
+				Extension: runtime.RawExtension{
+					Raw: raw,
+				},
+			},
+		}
 	}
 
 	for _, cluster := range k.clusters {
@@ -498,14 +539,7 @@ func (k *kubeconfigRequest) generate() ([]byte, error) {
 			Cluster: clientcmdv1.Cluster{
 				CertificateAuthorityData: cluster.caCert,
 				Server:                   fmt.Sprintf("https://%s", cluster.apiServerHost),
-				Extensions: []clientcmdv1.NamedExtension{
-					{
-						Name: "client.authentication.k8s.io/exec",
-						Extension: runtime.RawExtension{
-							Raw: raw,
-						},
-					},
-				},
+				Extensions:               clusterExtensions,
 			},
 		})
 		config.Contexts = append(config.Contexts, clientcmdv1.NamedContext{

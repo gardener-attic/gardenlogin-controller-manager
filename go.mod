@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver v1.5.0
 	github.com/frankban/quicktest v1.13.0 // indirect
 	github.com/gardener/gardener v1.24.0
 	github.com/go-logr/logr v0.4.0
