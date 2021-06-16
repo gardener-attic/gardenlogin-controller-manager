@@ -213,7 +213,7 @@ func (r *ShootReconciler) configMapPredicate() predicate.Funcs {
 func (r *ShootReconciler) shootStatePredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			log := r.Log.WithValues("event", e)
+			log := r.Log // do not set the event as log.WithValues as it may contain credentials
 
 			if e.ObjectOld == nil {
 				log.Error(nil, "Update event has no old runtime object to update")
@@ -231,6 +231,9 @@ func (r *ShootReconciler) shootStatePredicate() predicate.Funcs {
 				return false
 			}
 
+			// enhance log with name and namespace of the object for which the event occurred
+			log = log.WithValues("name", old.Name, "namespace", old.Namespace)
+
 			new, ok := e.ObjectNew.(*gardencorev1alpha1.ShootState)
 			if !ok {
 				log.Error(nil, "Update event new runtime object cannot be converted to ShootState")
@@ -239,17 +242,26 @@ func (r *ShootReconciler) shootStatePredicate() predicate.Funcs {
 
 			oldCaCert, err := clusterCaCert(old)
 			if err != nil {
-				log.Error(nil, "Update event failed to read cluster ca from old ShootState")
-				return false
+				if !errors.Is(err, caNotProvisionedError) {
+					log.Error(nil, "Update event failed to read cluster ca from old ShootState", "error", err)
+					return false
+				} else { // continue if old ca cert is nil. We will compare it to new ca cert
+					oldCaCert = nil
+				}
 			}
 
 			newCaCert, err := clusterCaCert(new)
 			if err != nil {
-				log.Error(nil, "Update event failed to read cluster ca from new ShootState")
+				// The caNotProvisionedError is usually returned for newly created clusters, in this case we do not want to log it as error as it is expected.
+				// However in case the new ca cert is nil, it does not make sense to handle the event and that's why we skip it
+				if !errors.Is(err, caNotProvisionedError) {
+					log.Error(nil, "Update event failed to read cluster ca from new ShootState", "error", err)
+				}
 				return false
 			}
 
-			return apiequality.Semantic.DeepEqual(oldCaCert, newCaCert)
+			// if the ca cert has changed, we want to handle the event
+			return !apiequality.Semantic.DeepEqual(oldCaCert, newCaCert)
 		},
 	}
 }
@@ -384,6 +396,8 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 	return ctrl.Result{}, nil
 }
 
+var caNotProvisionedError = errors.New("certificate authority not yet provisioned")
+
 // clusterCaCert reads the ca certificate from the gardener resource data
 func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
 	ca, err := infodata.GetInfoData(shootState.Spec.Gardener, v1beta1constants.SecretNameCACluster)
@@ -392,7 +406,7 @@ func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
 	}
 
 	if ca == nil {
-		return nil, errors.New("certificate authority not yet provisioned")
+		return nil, caNotProvisionedError
 	}
 
 	caInfoData, ok := ca.(*secrets.CertificateInfoData)
