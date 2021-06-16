@@ -9,6 +9,7 @@ Source: https://github.com/gardener/gardenlogin-controller-manager
 Files:
   .ci/pipeline_definitions
   config/secret/tls/.gitignore
+  config/rbac/role.yaml # generated file
   .github/*
   .gitignore
   CODEOWNERS
