@@ -6,7 +6,7 @@
 [![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
 
 The `gardenlogin-controller-manager` renders `kubeconfig`s for accessing `Shoot` clusters. The authentication to the `Shoot` cluster is handled transparently by the [gardenlogin](https://github.com/gardener/gardenlogin) `kubectl` credential plugin. See the `gardenlogin` [authentication flow](https://github.com/gardener/gardenlogin#authentication-flow) for more details.
-As the `kubeconfig`s do not contain any credentials, the `gardenlogin-controller-manager` stores the `kubeconfigs` in `ConfigMap`s under the path `data.kubeconfig`. The `ConfigMap` is named `<shoot-name>.kubeconfig`.  
+As the `kubeconfig`s do not contain any credentials, the `gardenlogin-controller-manager` stores the `kubeconfig`s in `ConfigMap`s under the path `data.kubeconfig`. The `ConfigMap` is named `<shoot-name>.kubeconfig`.  
 
 ## Example
 ### Kubeconfig
