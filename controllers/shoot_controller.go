@@ -241,16 +241,16 @@ func (r *ShootReconciler) shootStatePredicate() predicate.Funcs {
 			}
 
 			oldCaCert, err := clusterCaCert(old)
-			if err != nil && !errors.Is(err, caNotProvisionedError) {
+			if err != nil && !errors.Is(err, errCaNotProvisioned) {
 				log.Error(nil, "Update event failed to read cluster ca from old ShootState", "error", err)
 				return false
 			}
 
 			newCaCert, err := clusterCaCert(new)
 			if err != nil {
-				// The caNotProvisionedError is usually returned for newly created clusters, in this case we do not want to log it as error as it is expected.
+				// The errCaNotProvisioned is usually returned for newly created clusters, in this case we do not want to log it as error as it is expected.
 				// However in case the new ca cert is nil, it does not make sense to handle the event and that's why we skip it
-				if !errors.Is(err, caNotProvisionedError) {
+				if !errors.Is(err, errCaNotProvisioned) {
 					log.Error(nil, "Update event failed to read cluster ca from new ShootState", "error", err)
 				}
 				return false
@@ -392,7 +392,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 	return ctrl.Result{}, nil
 }
 
-var caNotProvisionedError = errors.New("certificate authority not yet provisioned")
+var errCaNotProvisioned = errors.New("certificate authority not yet provisioned")
 
 // clusterCaCert reads the ca certificate from the gardener resource data
 func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
@@ -402,7 +402,7 @@ func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
 	}
 
 	if ca == nil {
-		return nil, caNotProvisionedError
+		return nil, errCaNotProvisioned
 	}
 
 	caInfoData, ok := ca.(*secrets.CertificateInfoData)
