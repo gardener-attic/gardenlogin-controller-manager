@@ -27,7 +27,7 @@ clusters:
         shootRef:
           namespace: garden-myproject
           name: mycluster
-        gardenClusterIdentity: landscape-dev # must match with the garden cluster identity from the config
+        gardenClusterIdentity: landscape-dev # must match with the garden cluster identity from the gardenlogin config
 contexts:
 - name: shoot--myproject--mycluster
   context:
