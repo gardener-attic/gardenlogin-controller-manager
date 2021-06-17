@@ -16,5 +16,5 @@ echo "Creating temporary directory for serving certs under $CERTS_DIR"
 mkdir -p $CERTS_DIR
 
 echo "Copying certificates to $CERTS_DIR"
-cp ../config/secret/tls/garden-login-controller-manager-tls.pem $CERTS_DIR/tls.crt
-cp ../config/secret/tls/garden-login-controller-manager-tls-key.pem $CERTS_DIR/tls.key
+cp ../config/secret/tls/gardenlogin-controller-manager-tls.pem $CERTS_DIR/tls.crt
+cp ../config/secret/tls/gardenlogin-controller-manager-tls-key.pem $CERTS_DIR/tls.key

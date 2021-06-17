@@ -1,0 +1,16 @@
+{
+    "CN": "gardenlogin-webhook-service.gardenlogin-system.svc.cluster.local",
+    "hosts": [
+        "gardenlogin-webhook-service",
+        "gardenlogin-webhook-service.gardenlogin-system",
+        "gardenlogin-webhook-service.gardenlogin-system.svc",
+        "gardenlogin-webhook-service.gardenlogin-system.svc.cluster",
+        "gardenlogin-webhook-service.gardenlogin-system.svc.cluster.local"
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+    ]
+}

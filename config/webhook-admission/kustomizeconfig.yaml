@@ -5,5 +5,3 @@
 varReference:
   - path: webhooks/clientConfig/caBundle
     kind: ValidatingWebhookConfiguration
-  - path: webhooks/clientConfig/caBundle
-    kind: MutatingWebhookConfiguration

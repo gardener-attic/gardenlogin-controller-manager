@@ -8,6 +8,4 @@
 varReference:
 - path: metadata/annotations
 - path: webhooks/clientConfig/url
-  kind: MutatingWebhookConfiguration
-- path: webhooks/clientConfig/url
   kind: ValidatingWebhookConfiguration

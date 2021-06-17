@@ -29,13 +29,14 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532 # TODO from TCM
+        runAsUser: 65532
       containers:
       - command:
         - /manager
         args:
         - "--leader-elect"
-        - "--config-file=/etc/garden-login-controller-manager/config.yaml"
+        - "--config-file=/etc/gardenlogin-controller-manager/config.yaml"
+        - "--zap-devel=false"
         image: controller:latest
         name: manager
         securityContext:
@@ -60,7 +61,7 @@ spec:
             cpu: 100m
             memory: 100Mi
         volumeMounts:
-          - mountPath: /etc/garden-login-controller-manager
+          - mountPath: /etc/gardenlogin-controller-manager
             name: manager-config
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

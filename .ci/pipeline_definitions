@@ -1,4 +1,4 @@
-garden-login-controller-manager:
+gardenlogin-controller-manager:
   template: 'default'
   base_definition:
     repo: ~
@@ -9,17 +9,17 @@ garden-login-controller-manager:
         inject_effective_version: true
       publish:
         dockerimages:
-          garden-login:
+          gardenlogin:
             inputs:
               repos:
                 source: ~ # default
             registry: 'gcr-readwrite'
-            image: 'eu.gcr.io/gardener-project/gardener/garden-login-controller-manager'
+            image: 'eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager'
     steps:
       check:
-        image: 'golang:1.16.4'
+        image: 'golang:1.16.5'
       test:
-        image: 'golang:1.16.4'
+        image: 'golang:1.16.5'
   jobs:
     head-update:
       traits:
@@ -43,5 +43,5 @@ garden-login-controller-manager:
         component_descriptor: ~
         publish:
           dockerimages:
-            garden-login:
+            gardenlogin:
               tag_as_latest: true

@@ -5,6 +5,6 @@
 domain: gardener.cloud
 layout:
 - go.kubebuilder.io/v3
-projectName: garden-login-controller-manager
-repo: github.com/gardener/garden-login-controller-manager
+projectName: gardenlogin-controller-manager
+repo: github.com/gardener/gardenlogin-controller-manager
 version: "3"

@@ -3,13 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Image URL to use all building/pushing image targets
-IMG ?= eu.gcr.io/gardener-project/gardener/garden-login-controller-manager:latest
+IMG ?= eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager:latest
 
 # Kube RBAC Proxy image to use
 IMG_RBAC_PROXY ?= quay.io/brancz/kube-rbac-proxy:v0.8.0
-
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
 CR_VERSION := $(shell go mod edit -json | jq -r '.Require[] | select(.Path=="sigs.k8s.io/controller-runtime") | .Version')
 
@@ -36,7 +33,7 @@ all: build
 # entire set of makefiles included in this invocation, looking for lines of the
 # file as xyz: ## something, and then pretty-format the target and help. Then,
 # if there's a line with ##@ something, that gets pretty-printed as a category.
-# More info on the usage of ANSI control characters for garden-login formatting:
+# More info on the usage of ANSI control characters for gardenlogin formatting:
 # https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
 # More info on the awk command:
 # http://linuxcommand.org/lc3_adv_awk.php
@@ -46,11 +43,11 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests: controller-gen ## Generate ClusterRole object.
+	$(CONTROLLER_GEN) rbac:roleName=manager-role paths="./controllers/..."
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./controllers/..."
 
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -95,7 +92,7 @@ deploy-virtual: apply-image kustomize ## Multi-cluster use case: Deploy crd, adm
 deploy-singlecluster: apply-image ## Single-cluster use case: Deploy crd, admission configurations, controller etc. in the configured Kubernetes cluster
 	kustomize build config/overlay/single-cluster | kubectl apply -f -
 
-apply-image: manifests kustomize ## Apply garden-login controller and kube-rbac-proxy images according to the variables IMG and IMG_RBAC_PROXY
+apply-image: manifests kustomize ## Apply gardenlogin controller and kube-rbac-proxy images according to the variables IMG and IMG_RBAC_PROXY
 	cd config/manager && $(KUSTOMIZE) edit set image "controller=${IMG}"
 	cd config/default && $(KUSTOMIZE) edit set image "quay.io/brancz/kube-rbac-proxy=${IMG_RBAC_PROXY}"
 

@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Gardener garden-login-controller-manager
+Upstream-Name: Gardener gardenlogin-controller-manager
 Upstream-Contact: The Gardener project <gardener@googlegroups.com>
-Source: https://github.com/gardener/garden-login-controller-manager
+Source: https://github.com/gardener/gardenlogin-controller-manager
 
 # --------------------------------------------------
 # source code
@@ -9,11 +9,13 @@ Source: https://github.com/gardener/garden-login-controller-manager
 Files:
   .ci/pipeline_definitions
   config/secret/tls/.gitignore
+  config/rbac/role.yaml # generated file
   .github/*
   .gitignore
   CODEOWNERS
   go.mod
   go.sum
+  *.json
   VERSION
 Copyright: 2020 SAP SE or an SAP affiliate company and Gardener contributors
 License: Apache-2.0

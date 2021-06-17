@@ -8,19 +8,22 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"github.com/gardener/gardenlogin-controller-manager/controllers"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/webhooks"
 
+	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
+	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	//+kubebuilder:scaffold:imports
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var (
@@ -31,6 +34,8 @@ var (
 func init() {
 	//+kubebuilder:scaffold:scheme
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(gardencorev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(gardencorev1beta1.AddToScheme(scheme))
 }
 
 func main() {
@@ -48,13 +53,19 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&certDir, "cert-dir", "/tmp/k8s-webhook-server/serving-certs", "CertDir is the directory that contains the server key and certificate.")
-	flag.StringVar(&configFile, "config-file", "/etc/garden-login-controller-manager/config.yaml", "The path to the configuration file.")
+	flag.StringVar(&configFile, "config-file", "/etc/gardenlogin-controller-manager/config.yaml", "The path to the configuration file.")
 
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	cmConfig, err := util.ReadControllerManagerConfiguration(configFile)
+	if err != nil {
+		fmt.Printf("error reading config: %s", err.Error()) // Logger not yet set up
+		os.Exit(1)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -71,6 +82,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.ShootReconciler{
+		Client:                      mgr.GetClient(),
+		Log:                         ctrl.Log.WithName("controllers").WithName("Shoot"),
+		Scheme:                      mgr.GetScheme(),
+		Config:                      cmConfig,
+		ReconcilerCountPerNamespace: map[string]int{},
+	}).SetupWithManager(mgr, cmConfig.Controllers.Shoot); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Shoot")
+		os.Exit(1)
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -82,6 +104,23 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
+
+	// Setup webhooks
+	setupLog.Info("setting up webhook server")
+
+	hookServer := &webhook.Server{
+		CertDir: certDir,
+	}
+	if err := mgr.Add(hookServer); err != nil {
+		setupLog.Error(err, "unable register webhook server with manager")
+		os.Exit(1)
+	}
+
+	setupLog.Info("registering webhooks to the webhook server")
+	hookServer.Register("/validate-configmap", &webhook.Admission{Handler: &webhooks.ConfigmapValidator{
+		Log:    ctrl.Log.WithName("webhooks").WithName("ConfigmapValidation"),
+		Config: cmConfig,
+	}})
 
 	setupLog.Info("starting manager")
 
