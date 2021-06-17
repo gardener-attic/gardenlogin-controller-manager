@@ -241,13 +241,9 @@ func (r *ShootReconciler) shootStatePredicate() predicate.Funcs {
 			}
 
 			oldCaCert, err := clusterCaCert(old)
-			if err != nil {
-				if !errors.Is(err, caNotProvisionedError) {
-					log.Error(nil, "Update event failed to read cluster ca from old ShootState", "error", err)
-					return false
-				} else { // continue if old ca cert is nil. We will compare it to new ca cert
-					oldCaCert = nil
-				}
+			if err != nil && !errors.Is(err, caNotProvisionedError) {
+				log.Error(nil, "Update event failed to read cluster ca from old ShootState", "error", err)
+				return false
 			}
 
 			newCaCert, err := clusterCaCert(new)
