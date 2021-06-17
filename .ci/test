@@ -16,12 +16,12 @@ else
   export MAIN_REPO_DIR="$(readlink -f ${MAIN_REPO_DIR})"
 fi
 
-CR_VERSION=v0.8.3 # TODO switch to controller-runtime's v0.9.0 setup-envtest tool
+cr_version="v0.8.3" # TODO switch to controller-runtime's v0.9.0 setup-envtest tool
 
 ENVTEST_ASSETS_DIR="${MAIN_REPO_DIR}/testbin"
 
 mkdir -p "${ENVTEST_ASSETS_DIR}"
-test -f "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh || curl -sSLo "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/$(CR_VERSION)/hack/setup-envtest.sh
+test -f "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh || curl -sSLo "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/"${cr_version}"/hack/setup-envtest.sh
 source "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh; fetch_envtest_tools "${ENVTEST_ASSETS_DIR}"; setup_envtest_env "${ENVTEST_ASSETS_DIR}"
 
 pushd "$MAIN_REPO_DIR"
