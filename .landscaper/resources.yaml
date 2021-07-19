@@ -1,0 +1,26 @@
+---
+type: blueprint
+name: blueprint
+relation: local
+input:
+  type: dir
+  path: ./blueprint
+  mediaType: application/vnd.gardener.landscaper.blueprint.v1+tar+gzip
+  compress: true
+...
+---
+type: ociImage
+name: gardenlogin-controller-manager
+relation: local
+access:
+  type: ociRegistry
+  imageReference: eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager:0.1.0
+...
+---
+type: ociImage
+name: auth-proxy
+relation: local
+access:
+  type: ociRegistry
+  imageReference: quay.io/brancz/kube-rbac-proxy:v0.8.0
+...

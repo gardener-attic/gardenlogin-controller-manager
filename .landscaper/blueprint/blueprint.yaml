@@ -1,0 +1,21 @@
+apiVersion: landscaper.gardener.cloud/v1alpha1
+kind: Blueprint
+
+imports:
+  - name: applicationClusterTarget
+    required: true
+    targetType: landscaper.gardener.cloud/kubernetes-cluster
+  - name: runtimeClusterTarget
+    required: true
+    targetType: landscaper.gardener.cloud/kubernetes-cluster
+
+exports: []
+
+exportExecutions: []
+
+subinstallations: []
+
+deployExecutions:
+  - file: /deploy-executions.yaml
+    name: manifests
+    type: GoTemplate

@@ -17,6 +17,14 @@ Files:
   go.sum
   *.json
   VERSION
+  */mocks.go
+  */client/doc.go
+  .landscaper/blueprint/blueprint.yaml
+  .landscaper/blueprint/gardenlogin-deploy-execution.yaml
+  .landscaper/component-descriptor.yaml
+  .landscaper/container/go.mod
+  .landscaper/container/go.sum
+  .landscaper/resources.yaml
 Copyright: 2021 SAP SE or an SAP affiliate company and Gardener contributors
 License: Apache-2.0
 
