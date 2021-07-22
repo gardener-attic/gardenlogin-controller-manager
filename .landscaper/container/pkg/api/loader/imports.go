@@ -8,9 +8,9 @@ package loader
 import (
 	"io/ioutil"
 
-	"sigs.k8s.io/yaml"
-
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
+
+	"sigs.k8s.io/yaml"
 )
 
 // ImportsFromFile will read the file from the given path and try to unmarshal it into an api.Imports structure.

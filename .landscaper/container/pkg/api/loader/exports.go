@@ -10,9 +10,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"sigs.k8s.io/yaml"
-
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
+
+	"sigs.k8s.io/yaml"
 )
 
 // ExportsToFile writes export data to a file.

@@ -6,8 +6,11 @@
 package gardenlogin
 
 import (
+	"time"
+
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 	mockclient "github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/mock/controller-runtime/client"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -21,22 +24,49 @@ var _ = Describe("Operation", func() {
 				runtimeClient     = mockclient.NewMockClient(gomock.NewController(GinkgoT()))
 				applicationClient = mockclient.NewMockClient(gomock.NewController(GinkgoT()))
 				log               = logrus.New()
+				clock             = newFakeClock()
+				namespace         = "foo"
 				imports           = &api.Imports{}
 				imageRefs         = &api.ImageRefs{
-					GardenloginImage: "",
-					AuthProxyImage:   "",
+					GardenloginImage:   "",
+					KubeRbacProxyImage: "",
 				}
-				state = api.State{}
+				state    = api.State{}
+				contents = api.Contents{}
 			)
 
-			operationInterface := NewOperation(runtimeClient, applicationClient, log, imports, imageRefs, state)
+			operationInterface := NewOperation(runtimeClient, applicationClient, log, clock, namespace, imports, imageRefs, contents, state)
 
 			op, ok := operationInterface.(*operation)
 			Expect(ok).To(BeTrue())
 			Expect(op.runtimeClient).To(Equal(runtimeClient))
 			Expect(op.applicationClient).To(Equal(applicationClient))
 			Expect(op.log).To(Equal(log))
+			Expect(op.clock).To(Equal(clock))
+			Expect(op.namespace).To(Equal(namespace))
 			Expect(op.imports).To(Equal(imports))
+			Expect(op.contents).To(Equal(contents))
+			Expect(op.state).To(Equal(state))
 		})
 	})
 })
+
+// fakeClock implements Clock interface
+type fakeClock struct {
+	fakeTime time.Time
+}
+
+func (f *fakeClock) Now() time.Time {
+	return f.fakeTime
+}
+
+func newFakeClock() *fakeClock {
+	return &fakeClock{fakeTime: fakeNow()}
+}
+
+func fakeNow() time.Time {
+	t, err := time.Parse(time.RFC3339, "2017-12-14T23:34:00.000Z")
+	Expect(err).ToNot(HaveOccurred())
+
+	return t
+}

@@ -16,15 +16,15 @@ import (
 type ImageRefs struct {
 	// GardenloginImage holds the image of the gardenlogin-controller-manager
 	GardenloginImage string
-	// AuthProxyImage holds the image of the brancz/kube-rbac-proxy image
-	AuthProxyImage string
+	// KubeRbacProxyImage holds the image of the brancz/kube-rbac-proxy image
+	KubeRbacProxyImage string
 }
 
 // NewImageRefsFromComponentDescriptor extracts the relevant images from the component descriptor.
 func NewImageRefsFromComponentDescriptor(cd *cdv2.ComponentDescriptor) (*ImageRefs, error) {
 	const (
-		resourceNameGardenlogin = "gardenlogin-controller-manager"
-		resourceNameAuthProxy   = "auth-proxy"
+		resourceNameGardenlogin   = "gardenlogin-controller-manager"
+		resourceNameKubeRbacProxy = "kube-rbac-proxy"
 	)
 
 	imageRefs := ImageRefs{}
@@ -35,7 +35,7 @@ func NewImageRefsFromComponentDescriptor(cd *cdv2.ComponentDescriptor) (*ImageRe
 		return nil, err
 	}
 
-	imageRefs.AuthProxyImage, err = getImageRef(resourceNameAuthProxy, cd)
+	imageRefs.KubeRbacProxyImage, err = getImageRef(resourceNameKubeRbacProxy, cd)
 	if err != nil {
 		return nil, err
 	}

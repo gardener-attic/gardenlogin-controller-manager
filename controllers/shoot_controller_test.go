@@ -17,7 +17,7 @@ import (
 
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	corev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils/gardener"
 	"github.com/gardener/gardener/pkg/utils/secrets"
 	"github.com/gardener/gardener/pkg/utils/test/matchers"
@@ -155,7 +155,7 @@ var _ = Describe("ShootController", func() {
 			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 				Labels: map[string]string{
-					v1beta1constants.GardenRole: v1beta1constants.GardenRoleProject,
+					corev1beta1constants.GardenRole: corev1beta1constants.GardenRoleProject,
 				},
 			}})).To(Succeed())
 
@@ -244,7 +244,7 @@ var _ = Describe("ShootController", func() {
 				Spec: gardencorev1alpha1.ShootStateSpec{
 					Gardener: []gardencorev1alpha1.GardenerResourceData{
 						{
-							Name: v1beta1constants.SecretNameCACluster,
+							Name: corev1beta1constants.SecretNameCACluster,
 							Type: "certificate",
 							Data: runtime.RawExtension{Raw: caRaw},
 						},

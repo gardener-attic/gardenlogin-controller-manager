@@ -23,6 +23,8 @@ type Options struct {
 	ExportsPath string
 	// StatePath is the path to the state directory.
 	StatePath string
+	// ContentPath is the path to the content directory containing a copy of all blueprint data.
+	ContentPath string
 	// ComponentDescriptorPath is the path to the component descriptor file.
 	ComponentDescriptorPath string
 }
@@ -44,6 +46,7 @@ func (o *Options) InitializeFromEnvironment() {
 	o.ImportsPath = os.Getenv("IMPORTS_PATH")
 	o.ExportsPath = os.Getenv("EXPORTS_PATH")
 	o.StatePath = os.Getenv("STATE_PATH")
+	o.ContentPath = os.Getenv("CONTENT_PATH")
 
 	o.ComponentDescriptorPath = os.Getenv("COMPONENT_DESCRIPTOR_PATH")
 }
@@ -60,6 +63,14 @@ func (o *Options) validate(args []string) error {
 
 	if len(o.ExportsPath) == 0 {
 		return fmt.Errorf("missing path for exports file")
+	}
+
+	if len(o.StatePath) == 0 {
+		return fmt.Errorf("missing path for state")
+	}
+
+	if len(o.ContentPath) == 0 {
+		return fmt.Errorf("missing path for content data")
 	}
 
 	if len(o.ComponentDescriptorPath) == 0 {

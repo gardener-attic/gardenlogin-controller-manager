@@ -7,9 +7,9 @@ package gardenlogin
 
 import (
 	"context"
+
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-	//"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/helper"
-	//"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/provider"
+
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,6 +36,12 @@ type operation struct {
 	// log is a logger.
 	log logrus.FieldLogger
 
+	// clock provides the current time
+	clock Clock
+
+	// namespace is the namespace in the hosting cluster into which the virtual garden shall be deployed.
+	namespace string
+
 	// imports contains the imports configuration.
 	imports *api.Imports
 
@@ -43,6 +49,8 @@ type operation struct {
 
 	// imageRefs contains the image references from the component descriptor that are needed for the Deployments
 	imageRefs api.ImageRefs
+
+	contents api.Contents
 
 	state api.State
 }
@@ -52,16 +60,23 @@ func NewOperation(
 	runtimeClient client.Client,
 	applicationClient client.Client,
 	log *logrus.Logger,
+	clock Clock,
+	namespace string,
 	imports *api.Imports,
 	imageRefs *api.ImageRefs,
+	contents api.Contents,
 	state api.State,
 ) Interface {
 	return &operation{
 		runtimeClient:     runtimeClient,
 		applicationClient: applicationClient,
 		log:               log,
-		imports:           imports,
-		imageRefs:         *imageRefs,
-		state:             state,
+		clock:             clock,
+
+		namespace: namespace,
+		imports:   imports,
+		imageRefs: *imageRefs,
+		contents:  contents,
+		state:     state,
 	}
 }

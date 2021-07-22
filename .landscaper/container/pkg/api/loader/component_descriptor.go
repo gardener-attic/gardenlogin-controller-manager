@@ -11,9 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"sigs.k8s.io/yaml"
-
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"sigs.k8s.io/yaml"
 )
 
 // ComponentDescriptorToFile writes a component descriptor to a file.

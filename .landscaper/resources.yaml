@@ -18,7 +18,7 @@ access:
 ...
 ---
 type: ociImage
-name: auth-proxy
+name: kube-rbac-proxy
 relation: local
 access:
   type: ociRegistry

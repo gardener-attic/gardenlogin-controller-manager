@@ -10,15 +10,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ghodss/yaml"
-
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/loader"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/gardenlogin"
 
 	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
+	"github.com/ghodss/yaml"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -104,6 +102,12 @@ func run(ctx context.Context, log *logrus.Logger, opts *Options) error {
 		return errList.ToAggregate()
 	}
 
+	log.Infof("Validating content path")
+	contents := api.NewContentsFromPath(opts.ContentPath)
+	if err := validation.ValidateContents(contents); err != nil {
+		return fmt.Errorf("failed to validate contents: %w", err)
+	}
+
 	state := api.NewStateFromPath(opts.StatePath)
 
 	log.Infof("Creating REST config and Kubernetes client based on given kubeconfig for the runtime cluster")
@@ -118,7 +122,7 @@ func run(ctx context.Context, log *logrus.Logger, opts *Options) error {
 		return err
 	}
 
-	operation := gardenlogin.NewOperation(runtimeClient, applicationClient, log, imports, imageRefs, state)
+	operation := gardenlogin.NewOperation(runtimeClient, applicationClient, log, imports, imageRefs, contents, state)
 
 	if opts.OperationType == OperationTypeReconcile {
 		exports, err := operation.Reconcile(ctx)
