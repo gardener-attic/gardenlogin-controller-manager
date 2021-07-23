@@ -62,7 +62,7 @@ func loadOrGenerateCertificate(tlsKeyPemPath string, tlsPemPath string, certific
 			return nil, fmt.Errorf("failed to parse certificate: %w", err)
 		}
 
-		needsGeneration = certificateNeedsRenewal(certificate.NotBefore.UTC(), certificate.NotAfter.UTC(), clock.Now(), 0.8)
+		needsGeneration = certificateNeedsRenewal(certificate, clock.Now(), 0.8)
 	}
 
 	if needsGeneration {
@@ -110,9 +110,12 @@ func loadOrGenerateCertificate(tlsKeyPemPath string, tlsPemPath string, certific
 
 // certificateNeedsRenewal returns true in case the certificate is not (yet) valid or in case the given validityThresholdPercentage is exceeded.
 // A validityThresholdPercentage lower than 100% should be given in case the certificate should be renewed well in advance before the certificate expires.
-func certificateNeedsRenewal(notBefore time.Time, notAfter time.Time, now time.Time, validityThresholdPercentage float64) bool {
+func certificateNeedsRenewal(certificate *x509.Certificate, now time.Time, validityThresholdPercentage float64) bool {
+	notBefore := certificate.NotBefore.UTC()
+	notAfter := certificate.NotAfter.UTC()
+
 	validNotBefore := now.After(notBefore) || now.Equal(notBefore)
-	validNotAfter := now.Before(notAfter)
+	validNotAfter := now.Before(notAfter) || now.Equal(notAfter)
 
 	isValid := validNotBefore && validNotAfter
 	if !isValid {
@@ -124,7 +127,7 @@ func certificateNeedsRenewal(notBefore time.Time, notAfter time.Time, now time.T
 
 	validityThreshold := validityTimespan * validityThresholdPercentage
 
-	return elapsedValidity >= validityThreshold
+	return elapsedValidity > validityThreshold
 }
 
 func checkFileExists(path string) (bool, error) {

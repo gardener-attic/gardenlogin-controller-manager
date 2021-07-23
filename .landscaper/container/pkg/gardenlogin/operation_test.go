@@ -6,8 +6,7 @@
 package gardenlogin
 
 import (
-	"time"
-
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/fake"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 	mockclient "github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/mock/controller-runtime/client"
 
@@ -20,11 +19,13 @@ import (
 var _ = Describe("Operation", func() {
 	Describe("#NewOperation", func() {
 		It("should return the correct operation object", func() {
+			fakeClock, err := fake.NewFakeClock()
+			Expect(err).ToNot(HaveOccurred())
 			var (
 				runtimeClient     = mockclient.NewMockClient(gomock.NewController(GinkgoT()))
 				applicationClient = mockclient.NewMockClient(gomock.NewController(GinkgoT()))
 				log               = logrus.New()
-				clock             = newFakeClock()
+				clock             = fakeClock
 				namespace         = "foo"
 				imports           = &api.Imports{}
 				imageRefs         = &api.ImageRefs{
@@ -50,23 +51,3 @@ var _ = Describe("Operation", func() {
 		})
 	})
 })
-
-// fakeClock implements Clock interface
-type fakeClock struct {
-	fakeTime time.Time
-}
-
-func (f *fakeClock) Now() time.Time {
-	return f.fakeTime
-}
-
-func newFakeClock() *fakeClock {
-	return &fakeClock{fakeTime: fakeNow()}
-}
-
-func fakeNow() time.Time {
-	t, err := time.Parse(time.RFC3339, "2017-12-14T23:34:00.000Z")
-	Expect(err).ToNot(HaveOccurred())
-
-	return t
-}
