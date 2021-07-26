@@ -40,8 +40,8 @@ var _ = Describe("Operation", func() {
 
 			op, ok := operationInterface.(*operation)
 			Expect(ok).To(BeTrue())
-			Expect(op.runtimeClient).To(Equal(runtimeClient))
-			Expect(op.applicationClient).To(Equal(applicationClient))
+			Expect(op.multiCluster.runtimeCluster.client).To(Equal(runtimeClient))
+			Expect(op.multiCluster.applicationCluster.client).To(Equal(applicationClient))
 			Expect(op.log).To(Equal(log))
 			Expect(op.clock).To(Equal(clock))
 			Expect(op.namespace).To(Equal(namespace))

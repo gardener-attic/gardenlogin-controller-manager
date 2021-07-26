@@ -14,6 +14,7 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
+	k8s.io/api v0.20.7
 	k8s.io/apiextensions-apiserver v0.20.7
 	k8s.io/apimachinery v0.20.7
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible

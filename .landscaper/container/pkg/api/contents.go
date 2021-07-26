@@ -21,6 +21,11 @@ type Contents struct {
 	// GardenloginTlsKeyPemFile holds the file path of the gardenlogin-controller-manager-tls-key.pem file for the webhook server
 	GardenloginTlsKeyPemFile string
 
+	// RuntimeManagerPath is the path to the manager directory of the runtime overlay
+	RuntimeManagerPath string
+	// GardenloginKubeconfigPath holds the file path of the kubeconfig for the gardenlogin-controller-manager
+	GardenloginKubeconfigPath string
+
 	// Kustomize Overlay Paths
 
 	// VirtualGardenOverlayPath holds the path of the virtual garden kustomize overlay
@@ -40,6 +45,9 @@ func NewContentsFromPath(contentPath string) Contents {
 		GardenloginTlsPath:       filepath.Join(contentPath, "config", "secret", "tls"),
 		GardenloginTlsPemFile:    filepath.Join(contentPath, "config", "secret", "tls", "gardenlogin-controller-manager-tls.pem"),
 		GardenloginTlsKeyPemFile: filepath.Join(contentPath, "config", "secret", "tls", "gardenlogin-controller-manager-tls-key.pem"),
+
+		RuntimeManagerPath:        filepath.Join(contentPath, "config", "overlay", "multi-cluster", "runtime", "manager"),
+		GardenloginKubeconfigPath: filepath.Join(contentPath, "config", "overlay", "multi-cluster", "runtime", "manager", "kubeconfig.yaml"),
 
 		VirtualGardenOverlayPath: filepath.Join(contentPath, "config", "overlay", "multi-cluster", "virtual-garden"),
 		RuntimeOverlayPath:       filepath.Join(contentPath, "config", "overlay", "multi-cluster", "runtime"),
