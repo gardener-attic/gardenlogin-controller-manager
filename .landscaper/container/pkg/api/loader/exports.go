@@ -12,7 +12,7 @@ import (
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v2"
 )
 
 // ExportsToFile writes export data to a file.

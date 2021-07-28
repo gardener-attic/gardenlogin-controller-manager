@@ -8,9 +8,7 @@ package gardenlogin
 import (
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/fake"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-	mockclient "github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/mock/controller-runtime/client"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -22,13 +20,10 @@ var _ = Describe("Operation", func() {
 			fakeClock, err := fake.NewFakeClock()
 			Expect(err).ToNot(HaveOccurred())
 			var (
-				runtimeClient     = mockclient.NewMockClient(gomock.NewController(GinkgoT()))
-				applicationClient = mockclient.NewMockClient(gomock.NewController(GinkgoT()))
-				log               = logrus.New()
-				clock             = fakeClock
-				namespace         = "foo"
-				imports           = &api.Imports{}
-				imageRefs         = &api.ImageRefs{
+				log       = logrus.New()
+				clock     = fakeClock
+				imports   = &api.Imports{} // TODO targets
+				imageRefs = &api.ImageRefs{
 					GardenloginImage:   "",
 					KubeRbacProxyImage: "",
 				}
@@ -36,15 +31,15 @@ var _ = Describe("Operation", func() {
 				contents = api.Contents{}
 			)
 
-			operationInterface := NewOperation(runtimeClient, applicationClient, log, clock, namespace, imports, imageRefs, contents, state)
+			operationInterface, err := NewOperation(log, clock, imports, imageRefs, contents, state)
+			Expect(err).NotTo(HaveOccurred())
 
 			op, ok := operationInterface.(*operation)
 			Expect(ok).To(BeTrue())
-			Expect(op.multiCluster.runtimeCluster.client).To(Equal(runtimeClient))
-			Expect(op.multiCluster.applicationCluster.client).To(Equal(applicationClient))
+			Expect(op.multiCluster).To(BeNil())
+			Expect(op.singleCluster).To(BeNil())
 			Expect(op.log).To(Equal(log))
 			Expect(op.clock).To(Equal(clock))
-			Expect(op.namespace).To(Equal(namespace))
 			Expect(op.imports).To(Equal(imports))
 			Expect(op.contents).To(Equal(contents))
 			Expect(op.state).To(Equal(state))

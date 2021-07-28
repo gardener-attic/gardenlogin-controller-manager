@@ -6,6 +6,8 @@
 package validation
 
 import (
+	"strings"
+
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 
 	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
@@ -16,14 +18,30 @@ import (
 func ValidateImports(obj *api.Imports) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	allErrs = append(allErrs, ValidateCluster(&obj.RuntimeClusterTarget, field.NewPath("runtimeClusterTarget"))...)
-	allErrs = append(allErrs, ValidateCluster(&obj.ApplicationClusterTarget, field.NewPath("applicationClusterTarget"))...)
+	if obj.MultiClusterDeploymentScenario {
+		allErrs = append(allErrs, validateTarget(&obj.RuntimeClusterTarget, field.NewPath("runtimeClusterTarget"))...)
+		allErrs = append(allErrs, validateTarget(&obj.ApplicationClusterTarget, field.NewPath("applicationClusterTarget"))...)
+
+		allErrs = append(allErrs, validateTargetNotSet(&obj.SingleClusterTarget, field.NewPath("singleClusterTarget")))
+	} else {
+		allErrs = append(allErrs, validateTarget(&obj.SingleClusterTarget, field.NewPath("singleClusterTarget"))...)
+
+		allErrs = append(allErrs, validateTargetNotSet(&obj.RuntimeClusterTarget, field.NewPath("runtimeClusterTarget")))
+		allErrs = append(allErrs, validateTargetNotSet(&obj.ApplicationClusterTarget, field.NewPath("applicationClusterTarget")))
+	}
+
+	fldValidations := fieldValidations(obj)
+	allErrs = append(allErrs, validateRequiredFields(fldValidations)...)
+
+	if strings.HasPrefix(obj.Namespace, "garden-") {
+		allErrs = append(allErrs, field.Forbidden(field.NewPath("namespace"), "must not be prefixed with garden-"))
+	}
 
 	return allErrs
 }
 
-// ValidateCluster validates the cluster.
-func ValidateCluster(obj *lsv1alpha1.Target, fldPath *field.Path) field.ErrorList {
+// validateTarget validates the that a target has a kubeconfig set.
+func validateTarget(obj *lsv1alpha1.Target, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if obj == nil {
@@ -33,4 +51,53 @@ func ValidateCluster(obj *lsv1alpha1.Target, fldPath *field.Path) field.ErrorLis
 	}
 
 	return allErrs
+}
+
+// validateTargetNotSet validates that the target is not initialized.
+func validateTargetNotSet(obj *lsv1alpha1.Target, fldPath *field.Path) *field.Error {
+	if obj != nil {
+		return field.Forbidden(fldPath, "target must not be set")
+	}
+
+	return nil
+}
+
+func fieldValidations(obj *api.Imports) *[]fldValidation {
+	fldValidations := &[]fldValidation{
+		{
+			value:   &obj.NamePrefix,
+			fldPath: field.NewPath("namePrefix"),
+		},
+		{
+			value:   &obj.Namespace,
+			fldPath: field.NewPath("namespace"),
+		},
+	}
+
+	return fldValidations
+}
+
+type fldValidation struct {
+	value   *string
+	fldPath *field.Path
+}
+
+func validateRequiredFields(fldValidations *[]fldValidation) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	for _, fldValidation := range *fldValidations {
+		if err := validateRequiredField(fldValidation.value, fldValidation.fldPath); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
+}
+
+func validateRequiredField(val *string, fldPath *field.Path) *field.Error {
+	if val == nil || len(*val) == 0 {
+		return field.Required(fldPath, "field is required")
+	}
+
+	return nil
 }

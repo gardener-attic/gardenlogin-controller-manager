@@ -7,11 +7,20 @@ package gardenlogin
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io/ioutil"
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 
+	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
+	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,21 +37,11 @@ const Prefix = "gardenlogin"
 
 // operation contains the configuration for a operation.
 type operation struct {
-	// multiCluster holds the data for the multi-cluster deployment scenario with which the runtime part and application part is deployed into separate clusters
-	multiCluster multiCluster
+	// multiCluster holds the data for the multi-cluster deployment scenario with which the runtime part and application part is deployed into separate clusters.
+	multiCluster *multiCluster
 
 	// singleCluster holds the data for the single-cluster deployment scenario with which the resources are deployed into a single cluster
-	singleCluster cluster
-
-	// multiClusterDeploymentScenario is true when the runtime part and application part is deployed into separate clusters. It is false when only a single cluster is used
-	// if true, the multiCluster should be used. If false, singleCluster should be used.
-	multiClusterDeploymentScenario bool
-
-	// namePrefix is the name prefix of the resources build by kustomize. Defaults to gardenlogin-
-	namePrefix string
-
-	// namespace is the namespace into which the resources shall be installed.
-	namespace string
+	singleCluster *cluster
 
 	// log is a logger.
 	log logrus.FieldLogger
@@ -65,10 +64,10 @@ type operation struct {
 
 type multiCluster struct {
 	// runtimeCluster holds the data for the runtime cluster.
-	runtimeCluster cluster
+	runtimeCluster *cluster
 
 	// applicationCluster holds the data for the application cluster.
-	applicationCluster cluster
+	applicationCluster *cluster
 }
 
 type cluster struct {
@@ -88,41 +87,117 @@ type clientSet struct {
 
 // NewOperation returns a new operation structure that implements Interface.
 func NewOperation(
-	runtimeClient client.Client,
-	applicationClient client.Client,
 	log *logrus.Logger,
 	clock Clock,
-	namespace string,
 	imports *api.Imports,
 	imageRefs *api.ImageRefs,
 	contents api.Contents,
 	state api.State,
-) Interface {
+) (Interface, error) {
+	var (
+		mc *multiCluster
+		sc *cluster
+	)
+
+	if imports.MultiClusterDeploymentScenario {
+		runtimeCluster, err := newClusterFromTarget(imports.RuntimeClusterTarget)
+		if err != nil {
+			return nil, fmt.Errorf("could not create runtime cluster from target")
+		}
+
+		applicationCluster, err := newClusterFromTarget(imports.ApplicationClusterTarget)
+		if err != nil {
+			return nil, fmt.Errorf("could not create runtime cluster from target")
+		}
+
+		mc = &multiCluster{
+			runtimeCluster:     runtimeCluster,
+			applicationCluster: applicationCluster,
+		}
+	} else {
+		var err error
+
+		sc, err = newClusterFromTarget(imports.SingleClusterTarget)
+		if err != nil {
+			return nil, fmt.Errorf("could not create runtime cluster from target")
+		}
+	}
+
 	return &operation{
-		multiCluster: multiCluster{
-			runtimeCluster: cluster{
-				clientSet: &clientSet{
-					client:     runtimeClient,
-					kubernetes: nil, // TODO
-				},
-				//kubeconfig: "",
-			},
-			applicationCluster: cluster{
-				clientSet: &clientSet{
-					client:     runtimeClient,
-					kubernetes: nil, // TODO
-				},
-				//kubeconfig: "",
-			},
-		},
+		multiCluster:  mc,
+		singleCluster: sc,
+
 		log:   log,
 		clock: clock,
 
-		namePrefix: "gardenlogin-", // TODO
-		namespace:  namespace,
-		imports:    imports,
-		imageRefs:  *imageRefs,
-		contents:   contents,
-		state:      state,
+		imports:   imports,
+		imageRefs: *imageRefs,
+		contents:  contents,
+		state:     state,
+	}, nil
+}
+
+// kubeconfigFromTarget returns the kubeconfig from the given target.
+func kubeconfigFromTarget(target lsv1alpha1.Target) ([]byte, error) {
+	targetConfig := target.Spec.Configuration.RawMessage
+	targetConfigMap := make(map[string]string)
+
+	err := yaml.Unmarshal(targetConfig, &targetConfigMap)
+	if err != nil {
+		return nil, err
 	}
+
+	kubeconfig, ok := targetConfigMap["kubeconfig"]
+	if !ok {
+		return nil, errors.New("imported target does not contain a kubeconfig")
+	}
+
+	return []byte(kubeconfig), nil
+}
+
+// newClusterFromTarget returns a cluster struct for the given target and writes the kubeconfig of the target to a temporary file
+func newClusterFromTarget(target lsv1alpha1.Target) (*cluster, error) {
+	kubeconfig, err := kubeconfigFromTarget(target)
+	if err != nil {
+		return nil, fmt.Errorf("could not get kubeconfig from target: %w", err)
+	}
+
+	kubeconfigFile, err := ioutil.TempFile("", "kubeconfig-*.yaml")
+	if err != nil {
+		return nil, err
+	}
+	err = ioutil.WriteFile(kubeconfigFile.Name(), kubeconfig, 0600)
+	if err != nil {
+		return nil, err
+	}
+
+	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	kube, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("could not create kubenernetes clientset from config: %w", err)
+	}
+
+	scheme := runtime.NewScheme()
+	utilruntime.Must(kubernetesscheme.AddToScheme(scheme))
+
+	client, err := client.New(restConfig, client.Options{Scheme: scheme})
+	if err != nil {
+		return nil, fmt.Errorf("could not create client from config: %w", err)
+	}
+
+	return &cluster{
+		clientSet: &clientSet{
+			client:     client,
+			kubernetes: kube,
+		},
+		kubeconfig: kubeconfigFile.Name(),
+	}, nil
 }

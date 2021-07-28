@@ -18,6 +18,7 @@ import (
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 
 	secretsutil "github.com/gardener/gardener/pkg/utils/secrets"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -27,7 +28,6 @@ import (
 	clientcmdv1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	watchtools "k8s.io/client-go/tools/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 // Reconcile runs the reconcile operation.
@@ -40,7 +40,23 @@ func (o *operation) Reconcile(ctx context.Context) (*api.Exports, error) {
 		return nil, err
 	}
 
-	if !o.multiClusterDeploymentScenario {
+	if err := setNamespace([]string{
+		o.contents.VirtualGardenOverlayPath,
+		o.contents.RuntimeOverlayPath,
+		o.contents.SingleClusterPath,
+	}, o.imports.Namespace); err != nil {
+		return nil, err
+	}
+
+	if err := setNamePrefix([]string{
+		o.contents.VirtualGardenOverlayPath,
+		o.contents.RuntimeOverlayPath,
+		o.contents.SingleClusterPath,
+	}, o.imports.NamePrefix); err != nil {
+		return nil, err
+	}
+
+	if !o.imports.MultiClusterDeploymentScenario {
 		// single cluster deployment
 		if err := buildAndApplyOverlay(o.contents.SingleClusterPath, o.singleCluster.kubeconfig); err != nil {
 			return nil, err
@@ -62,10 +78,10 @@ func (o *operation) Reconcile(ctx context.Context) (*api.Exports, error) {
 	return &o.exports, nil
 }
 
-// loadOrGenerateGardenloginTlsCertificate loads or generates the gardenlogin tls certificate.
+// loadOrGenerateTlsCertificate loads or generates the gardenlogin tls certificate.
 // It tries to restore the ca and tls certificate from the state
 // or generates new in case they are not valid or not within the validity threshold
-func (o *operation) loadOrGenerateGardenloginTlsCertificate() (*secretsutil.Certificate, error) {
+func (o *operation) loadOrGenerateTlsCertificate() (*secretsutil.Certificate, error) {
 	caCertConfig := &secretsutil.CertificateSecretConfig{
 		CertType:   secretsutil.CACert,
 		CommonName: Prefix + ":ca",
@@ -92,13 +108,13 @@ func (o *operation) loadOrGenerateGardenloginTlsCertificate() (*secretsutil.Cert
 	certConfig := &secretsutil.CertificateSecretConfig{
 		CertType:   secretsutil.ServerClientCert,
 		SigningCA:  caCertResult.certificate,
-		CommonName: fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", Prefix, o.namespace),
+		CommonName: fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", Prefix, o.imports.Namespace),
 		DNSNames: []string{
 			fmt.Sprintf("%s-webhook-service", Prefix),
-			fmt.Sprintf("%s-webhook-service.%s", Prefix, o.namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc", Prefix, o.namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc.cluster", Prefix, o.namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", Prefix, o.namespace),
+			fmt.Sprintf("%s-webhook-service.%s", Prefix, o.imports.Namespace),
+			fmt.Sprintf("%s-webhook-service.%s.svc", Prefix, o.imports.Namespace),
+			fmt.Sprintf("%s-webhook-service.%s.svc.cluster", Prefix, o.imports.Namespace),
+			fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", Prefix, o.imports.Namespace),
 		},
 	}
 
@@ -118,7 +134,7 @@ func (o *operation) loadOrGenerateGardenloginTlsCertificate() (*secretsutil.Cert
 // setTlsCertificate loads the tls certificate for the gardenlogin-controller-manager from the state or generates a new certificate
 // the tls key and tls pem file is written to the respective directory of the kustomize config
 func (o *operation) setTlsCertificate() error {
-	tlsCert, err := o.loadOrGenerateGardenloginTlsCertificate()
+	tlsCert, err := o.loadOrGenerateTlsCertificate()
 	if err != nil {
 		return fmt.Errorf("could not load or generate gardenlogin tls certificate: %w", err)
 	}
@@ -148,6 +164,31 @@ func (o *operation) setImages() error {
 	cmd.Dir = o.contents.ManagerPath
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to set kube-rbac-proxy image %s: %w", o.imageRefs.KubeRbacProxyImage, err)
+	}
+
+	return nil
+}
+
+// setNamespace uses kustomize cli to set the namespace field in the kustomization file
+func setNamespace(overlayPaths []string, namespace string) error {
+	for _, overlayPath := range overlayPaths {
+		cmd := exec.Command("kustomize", "edit", "set", "namespace", namespace)
+		cmd.Dir = overlayPath
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to set namespace %s for overlay path %s: %w", namespace, overlayPath, err)
+		}
+	}
+	return nil
+}
+
+// setNamespace uses kustomize cli to set the namePrefix field in the kustomization file
+func setNamePrefix(overlayPaths []string, namePrefix string) error {
+	for _, overlayPath := range overlayPaths {
+		cmd := exec.Command("kustomize", "edit", "set", "nameprefix", namePrefix)
+		cmd.Dir = overlayPath
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to set nameprefix %s for overlay path %s: %w", namePrefix, overlayPath, err)
+		}
 	}
 
 	return nil
@@ -184,8 +225,8 @@ func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 // setGardenloginKubeconfig generates a kubeconfig for the gardenlogin-controller-manager and adds it to the overlay using kustomize cli. It reads the token of from the controller-manager service account
 func (o *operation) setGardenloginKubeconfig(ctx context.Context) error {
 	serviceAccount := &corev1.ServiceAccount{}
-	serviceAccountName := fmt.Sprintf("%scontroller-manager", o.namePrefix)
-	if err := o.multiCluster.applicationCluster.client.Get(ctx, client.ObjectKey{Namespace: o.namespace, Name: serviceAccountName}, serviceAccount); err != nil {
+	serviceAccountName := fmt.Sprintf("%scontroller-manager", o.imports.NamePrefix)
+	if err := o.multiCluster.applicationCluster.client.Get(ctx, client.ObjectKey{Namespace: o.imports.Namespace, Name: serviceAccountName}, serviceAccount); err != nil {
 		return err
 	}
 

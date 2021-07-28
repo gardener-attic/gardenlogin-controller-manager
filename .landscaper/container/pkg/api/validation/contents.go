@@ -24,6 +24,9 @@ func ValidateContents(obj api.Contents) error {
 	if err := validatePathExists(obj.GardenloginTlsPath); err != nil {
 		return fmt.Errorf("validation failed for tls path: %w", err)
 	}
+	if err := validatePathExists(obj.RuntimeManagerPath); err != nil {
+		return fmt.Errorf("validation failed for runtime manager path: %w", err)
+	}
 	if err := validatePathExists(obj.VirtualGardenOverlayPath); err != nil {
 		return fmt.Errorf("validation failed for virtual garden overlay path: %w", err)
 	}

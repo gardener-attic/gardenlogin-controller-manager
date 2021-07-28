@@ -30,9 +30,9 @@ type Contents struct {
 
 	// VirtualGardenOverlayPath holds the path of the virtual garden kustomize overlay
 	VirtualGardenOverlayPath string
-	// RuntimeOverlayPath holds the path of the runtime cluster kustomize overlay
+	// RuntimeOverlayPath holds the path of the runtime-cluster kustomize overlay
 	RuntimeOverlayPath string
-	// SingleClusterPath holds the path of the single cluster kustomize overlay
+	// SingleClusterPath holds the path of the single-cluster kustomize overlay
 	SingleClusterPath string
 }
 

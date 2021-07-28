@@ -15,18 +15,11 @@ import (
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/gardenlogin"
 
-	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
-	"github.com/ghodss/yaml"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/version/verflag"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // OperationType is a string alias.
@@ -65,7 +58,9 @@ func NewCommandVirtualGarden() *cobra.Command {
 				log.Infof("FLAG: --%s=%s", flag.Name, flag.Value)
 			})
 
-			if err := run(cmd.Context(), log, opts); err != nil {
+			clock := gardenlogin.RealClock{}
+
+			if err := run(cmd.Context(), log, clock, opts); err != nil {
 				panic(err)
 			}
 
@@ -78,8 +73,8 @@ func NewCommandVirtualGarden() *cobra.Command {
 	return cmd
 }
 
-// run runs the virtual garden deployer.
-func run(ctx context.Context, log *logrus.Logger, opts *Options) error {
+// run runs the gardenlogin deployer.
+func run(ctx context.Context, log *logrus.Logger, clock gardenlogin.Clock, opts *Options) error {
 	log.Infof("Reading imports file from %s", opts.ImportsPath)
 	imports, err := loader.ImportsFromFile(opts.ImportsPath)
 	if err != nil {
@@ -110,19 +105,18 @@ func run(ctx context.Context, log *logrus.Logger, opts *Options) error {
 
 	state := api.NewStateFromPath(opts.StatePath)
 
-	log.Infof("Creating REST config and Kubernetes client based on given kubeconfig for the runtime cluster")
-	runtimeClient, err := NewClientFromTarget(imports.RuntimeClusterTarget)
+	operation, err := gardenlogin.NewOperation(
+		log,
+		clock,
+		imports,
+		imageRefs,
+		contents,
+		state,
+	)
 	if err != nil {
 		return err
 	}
-
-	log.Infof("Creating REST config and Kubernetes client based on given kubeconfig for the application cluster")
-	applicationClient, err := NewClientFromTarget(imports.ApplicationClusterTarget)
-	if err != nil {
-		return err
-	}
-
-	operation := gardenlogin.NewOperation(runtimeClient, applicationClient, log, imports, imageRefs, contents, state)
+	// TODO defer cleanup
 
 	if opts.OperationType == OperationTypeReconcile {
 		exports, err := operation.Reconcile(ctx)
@@ -141,41 +135,4 @@ func run(ctx context.Context, log *logrus.Logger, opts *Options) error {
 		return operation.Delete(ctx)
 	}
 	return fmt.Errorf("unknown operation type: %q", opts.OperationType)
-}
-
-// NewClientFromTarget creates a new Kubernetes client for the kubeconfig in the given target.
-func NewClientFromTarget(target lsv1alpha1.Target) (client.Client, error) {
-	targetConfig := target.Spec.Configuration.RawMessage
-	targetConfigMap := make(map[string]string)
-
-	err := yaml.Unmarshal(targetConfig, &targetConfigMap)
-	if err != nil {
-		return nil, err
-	}
-
-	kubeconfig, ok := targetConfigMap["kubeconfig"]
-	if !ok {
-		return nil, fmt.Errorf("Imported target does not contain a kubeconfig")
-	}
-
-	return NewClientFromKubeconfig([]byte(kubeconfig))
-}
-
-// NewClientFromKubeconfig creates a new Kubernetes client for the given kubeconfig.
-func NewClientFromKubeconfig(kubeconfig []byte) (client.Client, error) {
-	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	restConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	scheme := runtime.NewScheme()
-	utilruntime.Must(kubernetesscheme.AddToScheme(scheme))
-	utilruntime.Must(apiextensionsv1beta1.AddToScheme(scheme))
-
-	return client.New(restConfig, client.Options{Scheme: scheme})
 }

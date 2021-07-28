@@ -10,7 +10,7 @@ import (
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v2"
 )
 
 // ImportsFromFile will read the file from the given path and try to unmarshal it into an api.Imports structure.

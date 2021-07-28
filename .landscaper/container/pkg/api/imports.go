@@ -13,22 +13,32 @@ import (
 type Imports struct {
 	// ApplicationClusterTarget is the kubeconfig of the application cluster into which the application resources
 	// like ValidatingWebhookConfigurations for the ConfigMaps are installed into (which is usually the virtual-garden}.
+	// Must not be set when MultiClusterDeploymentScenario is false.
 	ApplicationClusterTarget lsv1alpha1.Target `json:"applicationClusterTarget" yaml:"applicationClusterTarget"`
 
-	// RuntimeClusterTarget is the kubeconfig of the hosting cluster into which the virtual garden shall be installed.
+	// RuntimeClusterTarget is the kubeconfig of the hosting cluster into which the gardenlogin-controller-manager shall be installed.
+	// Must not be set when MultiClusterDeploymentScenario is false.
 	RuntimeClusterTarget lsv1alpha1.Target `json:"runtimeClusterTarget" yaml:"runtimeClusterTarget"`
-	// RuntimeCluster contains settings for the hosting cluster that runs the gardenlogin-controller-manager.
-	RuntimeCluster RuntimeCluster `json:"runtimeCluster" yaml:"runtimeCluster"`
+
+	// SingleClusterTarget is the kubeconfig of cluster into which the resources shall be installed.
+	// Must not be set when MultiClusterDeploymentScenario is true.
+	SingleClusterTarget lsv1alpha1.Target `json:"singleClusterTarget" yaml:"singleClusterTarget"`
+
+	// MultiClusterDeploymentScenario is true when the runtime part and application part is deployed into separate clusters. It is false when only a single cluster is used
+	// if true, the multiCluster should be used. If false, singleCluster should be used.
+	MultiClusterDeploymentScenario bool `json:"multiClusterDeploymentScenario" yaml:"multiClusterDeploymentScenario"`
+
+	// NamePrefix is the name prefix of the resources build by kustomize.
+	NamePrefix string `json:"namePrefix" yaml:"namePrefix"`
+
+	// Namespace is the namespace into which the resources shall be installed. It must not start with garden- to prevent name clashes with project namespaces
+	Namespace string `json:"namespace" yaml:"namespace"`
 
 	// Gardenlogin contains configuration for the gardenlogin-controller-manager.
 	Gardenlogin Gardenlogin `json:"gardenlogin" yaml:"gardenlogin"`
 
 	// ApplicationClusterEndpoint holds the endpoint of the application cluster
-	ApplicationClusterEndpoint string
-}
-
-// RuntimeCluster contains settings for the hosting cluster that runs the gardenlogin-controller-manager.
-type RuntimeCluster struct {
+	ApplicationClusterEndpoint string `json:"applicationClusterEndpoint" yaml:"applicationClusterEndpoint"`
 }
 
 // Gardenlogin contains configuration for the gardenlogin-controller-manager.
