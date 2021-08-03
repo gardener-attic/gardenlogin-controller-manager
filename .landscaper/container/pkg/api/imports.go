@@ -36,9 +36,6 @@ type Imports struct {
 
 	// Gardenlogin contains configuration for the gardenlogin-controller-manager.
 	Gardenlogin Gardenlogin `json:"gardenlogin" yaml:"gardenlogin"`
-
-	// ApplicationClusterEndpoint holds the endpoint of the application cluster
-	ApplicationClusterEndpoint string `json:"applicationClusterEndpoint" yaml:"applicationClusterEndpoint"`
 }
 
 // Gardenlogin contains configuration for the gardenlogin-controller-manager.

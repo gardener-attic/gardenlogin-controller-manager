@@ -3,11 +3,32 @@ kind: Blueprint
 
 imports:
   - name: applicationClusterTarget
-    required: true
+    required: false
     targetType: landscaper.gardener.cloud/kubernetes-cluster
   - name: runtimeClusterTarget
-    required: true
+    required: false
     targetType: landscaper.gardener.cloud/kubernetes-cluster
+  - name: singleClusterTarget
+    required: false
+    targetType: landscaper.gardener.cloud/kubernetes-cluster
+  - name: multiClusterDeploymentScenario
+    required: true
+    type: data
+    schema:
+      type: boolean
+
+  - name: namePrefix
+    required: true
+    type: data
+    schema:
+      type: string
+
+  - name: namespace
+    required: true
+    type: data
+    schema:
+      type: string
+
 
 exports: []
 
