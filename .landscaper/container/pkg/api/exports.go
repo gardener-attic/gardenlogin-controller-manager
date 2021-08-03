@@ -5,6 +5,6 @@
 
 package api
 
-// Eports defines the structure for the exported data which might be consumed by other components.
+// Exports defines the structure for the exported data which might be consumed by other components.
 type Exports struct {
 }
