@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+SOURCE_PATH="$(dirname $0)/.."
+COMMIT_SHA="$(git --git-dir ${SOURCE_PATH}/.git rev-parse HEAD)"
+
+if [[ ${RESOURCES_FILE_PATH} == "" ]]; then
+  RESOURCES_FILE_PATH="${SOURCE_PATH}/.landscaper/resources.yaml"
+fi
+
+printf "> Building gardenlogin-controller-manager with version ${EFFECTIVE_VERSION} - ${COMMIT_SHA}\n"
+
+printf "> Create gardenlogin-controller-manager component archive\n"
+
+CA_PATH="$(mktemp -d)"
+cp ${BASE_DEFINITION_PATH} "${CA_PATH}/component-descriptor.yaml"
+component-cli ca "${CA_PATH}" "${CTF_PATH}" \
+    -r  ${RESOURCES_FILE_PATH} \
+    VERSION=${EFFECTIVE_VERSION}

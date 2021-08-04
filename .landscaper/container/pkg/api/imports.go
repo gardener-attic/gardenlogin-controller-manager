@@ -11,6 +11,9 @@ import (
 
 // Imports defines the structure for the required configuration values from other components.
 type Imports struct {
+	// ApplicationClusterEndpoint holds the endpoint of the application cluster
+	ApplicationClusterEndpoint string `json:"applicationClusterEndpoint" yaml:"applicationClusterEndpoint"`
+
 	// ApplicationClusterTarget is the kubeconfig of the application cluster into which the application resources
 	// like ValidatingWebhookConfigurations for the ConfigMaps are installed into (which is usually the virtual-garden}.
 	// Must not be set when MultiClusterDeploymentScenario is false.

@@ -10,14 +10,6 @@ input:
 ...
 ---
 type: ociImage
-name: gardenlogin-controller-manager
-relation: local
-access:
-  type: ociRegistry
-  imageReference: eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager:0.1.0
-...
----
-type: ociImage
 name: kube-rbac-proxy
 relation: local
 access:

@@ -2,6 +2,11 @@ apiVersion: landscaper.gardener.cloud/v1alpha1
 kind: Blueprint
 
 imports:
+  - name: applicationClusterEndpoint
+    required: false
+    type: data
+    schema:
+      type: string
   - name: applicationClusterTarget
     required: false
     targetType: landscaper.gardener.cloud/kubernetes-cluster
