@@ -8,6 +8,7 @@
 # Ignore all tempfiles.
 /tmp
 .cache*
+gen
 
 # Binaries for programs and plugins
 *.exe

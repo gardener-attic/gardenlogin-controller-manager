@@ -42,6 +42,6 @@ exportExecutions: []
 subinstallations: []
 
 deployExecutions:
-  - file: /deploy-executions.yaml
+  - file: /gardenlogin-deploy-execution.yaml
     name: manifests
     type: GoTemplate

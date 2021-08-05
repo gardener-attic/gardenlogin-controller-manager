@@ -6,7 +6,7 @@
 
 set -e
 
-SOURCE_PATH="$(dirname $0)/.."
+SOURCE_PATH="$(dirname $0)/../../.."
 REPO_CTX="eu.gcr.io/gardener-project/development"
 CA_PATH="$(mktemp -d)"
 BASE_DEFINITION_PATH="${CA_PATH}/component-descriptor.yaml"
@@ -36,7 +36,7 @@ component-cli ca create "${CA_PATH}" \
 
 echo "> Extending resources.yaml: adding image of gardenlogin-container-deployer"
 RESOURCES_BASE_PATH="$(mktemp -d)"
-cp -R ".landscaper/" "${RESOURCES_BASE_PATH}"
+cp -R "../../.landscaper/" "${RESOURCES_BASE_PATH}"
 
 RESOURCES_FILE_PATH="${RESOURCES_BASE_PATH}/resources.yaml"
 cat << EOF >> ${RESOURCES_FILE_PATH}
