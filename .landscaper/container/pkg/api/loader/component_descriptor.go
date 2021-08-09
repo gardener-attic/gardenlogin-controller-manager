@@ -6,7 +6,8 @@
 package loader
 
 import (
-	"fmt"
+	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -40,12 +41,12 @@ func ComponentDescriptorFromFile(componentDescriptorPath string) (*cdv2.Componen
 	}
 
 	cdList := &cdv2.ComponentDescriptorList{}
-	if err := yaml.Unmarshal(data, cdList); err != nil {
+	if err := json.Unmarshal(data, cdList); err != nil {
 		return nil, err
 	}
 
 	if len(cdList.Components) != 1 {
-		return nil, fmt.Errorf("Component descriptor list does not contain a unique entry")
+		return nil, errors.New("Component descriptor list does not contain a unique entry")
 	}
 
 	return &cdList.Components[0], nil

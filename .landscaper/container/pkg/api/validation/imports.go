@@ -19,15 +19,15 @@ func ValidateImports(obj *api.Imports) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if obj.MultiClusterDeploymentScenario {
-		allErrs = append(allErrs, validateTarget(&obj.RuntimeClusterTarget, field.NewPath("runtimeClusterTarget"))...)
-		allErrs = append(allErrs, validateTarget(&obj.ApplicationClusterTarget, field.NewPath("applicationClusterTarget"))...)
+		allErrs = append(allErrs, validateTarget(obj.RuntimeClusterTarget, field.NewPath("runtimeClusterTarget"))...)
+		allErrs = append(allErrs, validateTarget(obj.ApplicationClusterTarget, field.NewPath("applicationClusterTarget"))...)
 
-		allErrs = append(allErrs, validateTargetNotSet(&obj.SingleClusterTarget, field.NewPath("singleClusterTarget")))
+		allErrs = append(allErrs, validateTargetNotSet(obj.SingleClusterTarget, field.NewPath("singleClusterTarget"))...)
 	} else {
-		allErrs = append(allErrs, validateTarget(&obj.SingleClusterTarget, field.NewPath("singleClusterTarget"))...)
+		allErrs = append(allErrs, validateTarget(obj.SingleClusterTarget, field.NewPath("singleClusterTarget"))...)
 
-		allErrs = append(allErrs, validateTargetNotSet(&obj.RuntimeClusterTarget, field.NewPath("runtimeClusterTarget")))
-		allErrs = append(allErrs, validateTargetNotSet(&obj.ApplicationClusterTarget, field.NewPath("applicationClusterTarget")))
+		allErrs = append(allErrs, validateTargetNotSet(obj.RuntimeClusterTarget, field.NewPath("runtimeClusterTarget"))...)
+		allErrs = append(allErrs, validateTargetNotSet(obj.ApplicationClusterTarget, field.NewPath("applicationClusterTarget"))...)
 	}
 
 	fldValidations := fieldValidations(obj)
@@ -41,12 +41,10 @@ func ValidateImports(obj *api.Imports) field.ErrorList {
 }
 
 // validateTarget validates the that a target has a kubeconfig set.
-func validateTarget(obj *lsv1alpha1.Target, fldPath *field.Path) field.ErrorList {
+func validateTarget(obj lsv1alpha1.Target, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	if obj == nil {
-		allErrs = append(allErrs, field.Required(fldPath, "target is required"))
-	} else if len(obj.Spec.Configuration.RawMessage) == 0 {
+	if len(obj.Spec.Configuration.RawMessage) == 0 {
 		allErrs = append(allErrs, field.Required(fldPath, "kubeconfig is required"))
 	}
 
@@ -54,12 +52,14 @@ func validateTarget(obj *lsv1alpha1.Target, fldPath *field.Path) field.ErrorList
 }
 
 // validateTargetNotSet validates that the target is not initialized.
-func validateTargetNotSet(obj *lsv1alpha1.Target, fldPath *field.Path) *field.Error {
-	if obj != nil {
-		return field.Forbidden(fldPath, "target must not be set")
+func validateTargetNotSet(obj lsv1alpha1.Target, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if len(obj.Spec.Configuration.RawMessage) != 0 {
+		allErrs = append(allErrs, field.Required(fldPath, "target (kubeconfig) must not be set"))
 	}
 
-	return nil
+	return allErrs
 }
 
 func fieldValidations(obj *api.Imports) *[]fldValidation {

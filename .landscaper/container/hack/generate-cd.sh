@@ -8,7 +8,7 @@ set -e
 
 SOURCE_PATH="$(dirname $0)/../../.."
 LANDSCAPER_SOURCE_PATH="$(realpath $(dirname $0)/../..)"
-IMAGE_REGISTRY="${IMAGE_REGISTRY:-eu.gcr.io/gardener-project/development}"
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-eu.gcr.io/gardener-project/development/images}"
 CD_REGISTRY="${CD_REGISTRY:-eu.gcr.io/gardener-project/development}"
 COMPONENT_NAME="github.com/gardener/gardenlogin-controller-manager/.landscaper/container"
 CA_PATH="$(mktemp -d)"
@@ -35,12 +35,12 @@ echo "> Creating base definition"
 component-cli component-archive create "${CA_PATH}" \
     --component-name="${COMPONENT_NAME}" \
     --component-version="${EFFECTIVE_VERSION}" \
-    --repo-ctx="${IMAGE_REGISTRY}"
+    --repo-ctx="${CD_REGISTRY}"
 
 echo "> Extending resources.yaml: adding image of gardenlogin-container-deployer"
 RESOURCES_BASE_PATH="$(mktemp -d)"
 RESOURCES_FILE_PATH="${RESOURCES_BASE_PATH}/resources.yaml"
-cp -R "${LANDSCAPER_SOURCE_PATH}/blueprint/" "${RESOURCES_BASE_PATH}"
+cp -RL "${LANDSCAPER_SOURCE_PATH}/blueprint/" "${RESOURCES_BASE_PATH}"
 cp "${LANDSCAPER_SOURCE_PATH}/resources.yaml" "${RESOURCES_BASE_PATH}"
 
 cat << EOF >> "${RESOURCES_FILE_PATH}"
@@ -51,6 +51,14 @@ relation: local
 access:
   type: ociRegistry
   imageReference: ${IMAGE_REGISTRY}/gardenlogin-container-deployer:${EFFECTIVE_VERSION}
+...
+---
+type: ociImage
+name: gardenlogin-controller-manager
+relation: local
+access:
+  type: ociRegistry
+  imageReference: ${IMAGE_REGISTRY}/gardenlogin-controller-manager:${EFFECTIVE_VERSION}
 ...
 EOF
 

@@ -2,6 +2,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Get the required binaries
+FROM golang:1.16.6 as bins
+ARG kubectl_version=v1.22.0
+ARG kustomize_version=v4.2.0
+
+WORKDIR /workspace
+# Get kubectl
+RUN wget -O kubectl https://dl.k8s.io/release/${kubectl_version}/bin/linux/amd64/kubectl && \
+    chmod +x kubectl
+RUN wget -O kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${kustomize_version}/kustomize_${kustomize_version}_linux_amd64.tar.gz && \
+    chmod +x kustomize
+
 # Build the container-deployer binary
 FROM golang:1.16.6 as builder
 
@@ -26,6 +38,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o container-deployer cmd/
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/container-deployer .
+COPY --from=bins /workspace/kubectl /usr/bin/kubectl
+COPY --from=bins /workspace/kustomize /usr/bin/kustomize
 
 # nonroot user https://github.com/GoogleContainerTools/distroless/blob/18b2d2c5ebfa58fe3e0e4ee3ffe0e2651ec0f7f6/base/base.bzl#L8
 USER 65532:65532

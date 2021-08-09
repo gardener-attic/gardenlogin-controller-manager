@@ -9,13 +9,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gardener/landscaper/apis/deployer/container"
 	"github.com/spf13/pflag"
 )
 
 // Options has all the context and parameters needed to run the virtual garden deployer.
 type Options struct {
 	// OperationType is the operation to be executed.
-	OperationType OperationType
+	OperationType container.OperationType
 	// ImportsPath is the path to the imports file.
 	ImportsPath string
 	// ExportsPath is the path to the exports file. The parent directory exists; the export file itself must be created.
@@ -31,7 +32,7 @@ type Options struct {
 
 // NewOptions returns a new options structure.
 func NewOptions() *Options {
-	return &Options{OperationType: OperationTypeReconcile}
+	return &Options{OperationType: container.OperationReconcile}
 }
 
 // AddFlags adds flags for a specific Scheduler to the specified FlagSet.
@@ -41,20 +42,20 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 // InitializeFromEnvironment initializes the options from the found environment variables.
 func (o *Options) InitializeFromEnvironment() {
 	if op := os.Getenv("OPERATION"); len(op) > 0 {
-		o.OperationType = OperationType(op)
+		o.OperationType = container.OperationType(op)
 	}
-	o.ImportsPath = os.Getenv("IMPORTS_PATH")
-	o.ExportsPath = os.Getenv("EXPORTS_PATH")
-	o.StatePath = os.Getenv("STATE_PATH")
-	o.ContentPath = os.Getenv("CONTENT_PATH")
+	o.ImportsPath = os.Getenv(container.ImportsPathName)
+	o.ExportsPath = os.Getenv(container.ExportsPathName)
+	o.StatePath = os.Getenv(container.StatePathName)
+	o.ContentPath = os.Getenv(container.ContentPathName)
 
-	o.ComponentDescriptorPath = os.Getenv("COMPONENT_DESCRIPTOR_PATH")
+	o.ComponentDescriptorPath = os.Getenv(container.ComponentDescriptorPathName)
 }
 
 // validate validates all the required options.
 func (o *Options) validate(args []string) error {
-	if o.OperationType != OperationTypeReconcile && o.OperationType != OperationTypeDelete {
-		return fmt.Errorf("operation must be %q or %q", OperationTypeReconcile, OperationTypeDelete)
+	if o.OperationType != container.OperationReconcile && o.OperationType != container.OperationDelete {
+		return fmt.Errorf("operation must be %q or %q", container.OperationReconcile, container.OperationDelete)
 	}
 
 	if len(o.ImportsPath) == 0 {

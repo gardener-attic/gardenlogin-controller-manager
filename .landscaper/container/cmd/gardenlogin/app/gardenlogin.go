@@ -15,21 +15,12 @@ import (
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/gardenlogin"
 
+	"github.com/gardener/landscaper/apis/deployer/container"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/component-base/version/verflag"
-)
-
-// OperationType is a string alias.
-type OperationType string
-
-const (
-	// OperationTypeReconcile is a  constant for the RECONCILE operation type.
-	OperationTypeReconcile OperationType = "RECONCILE"
-	// OperationTypeDelete is a constant for the DELETE operation type.
-	OperationTypeDelete OperationType = "DELETE"
 )
 
 // NewCommandVirtualGarden creates a *cobra.Command object with default parameters.
@@ -116,22 +107,10 @@ func run(ctx context.Context, log *logrus.Logger, clock gardenlogin.Clock, opts 
 	if err != nil {
 		return err
 	}
-	// TODO defer cleanup
 
-	if opts.OperationType == OperationTypeReconcile {
-		exports, err := operation.Reconcile(ctx)
-		if err != nil {
-			return err
-		}
-
-		log.Infof("Writing exports file to EXPORTS_PATH(%s)", opts.ExportsPath)
-		err = loader.ExportsToFile(exports, opts.ExportsPath)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	} else if opts.OperationType == OperationTypeDelete {
+	if opts.OperationType == container.OperationReconcile {
+		return operation.Reconcile(ctx)
+	} else if opts.OperationType == container.OperationDelete {
 		return operation.Delete(ctx)
 	}
 	return fmt.Errorf("unknown operation type: %q", opts.OperationType)

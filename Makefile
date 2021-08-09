@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Image URL to use all building/pushing image targets
-IMG ?= eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager:latest
+IMG ?= eu.gcr.io/gardener-project/development/images/gardenlogin-controller-manager
+
+REPO_ROOT           := $(shell git rev-parse --show-toplevel)
+VERSION             := $(shell cat "$(REPO_ROOT)/VERSION")
+EFFECTIVE_VERSION   := $(VERSION)-$(shell git rev-parse HEAD)
 
 # Kube RBAC Proxy image to use
 IMG_RBAC_PROXY ?= quay.io/brancz/kube-rbac-proxy:v0.8.0
@@ -70,10 +74,10 @@ run: manifests generate fmt lint ## Run a controller from your host.
 	go run ./main.go
 
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build -t $(IMG):$(EFFECTIVE_VERSION) .
 
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	docker push $(IMG):$(EFFECTIVE_VERSION)
 
 ##@ Deployment
 
@@ -93,7 +97,7 @@ deploy-singlecluster: apply-image ## Single-cluster use case: Deploy crd, admiss
 	kustomize build config/overlay/single-cluster | kubectl apply -f -
 
 apply-image: manifests kustomize ## Apply gardenlogin controller and kube-rbac-proxy images according to the variables IMG and IMG_RBAC_PROXY
-	cd config/manager && $(KUSTOMIZE) edit set image "controller=${IMG}"
+	cd config/manager && $(KUSTOMIZE) edit set image "controller=${IMG}:${EFFECTIVE_VERSION}"
 	cd config/default && $(KUSTOMIZE) edit set image "quay.io/brancz/kube-rbac-proxy=${IMG_RBAC_PROXY}"
 
 $(GOPATH)/bin/golangci-lint:

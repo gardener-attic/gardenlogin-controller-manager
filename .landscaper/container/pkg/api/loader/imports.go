@@ -6,11 +6,10 @@
 package loader
 
 import (
+	"encoding/json"
 	"io/ioutil"
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-
-	"gopkg.in/yaml.v2"
 )
 
 // ImportsFromFile will read the file from the given path and try to unmarshal it into an api.Imports structure.
@@ -21,7 +20,7 @@ func ImportsFromFile(path string) (*api.Imports, error) {
 	}
 
 	imports := &api.Imports{}
-	if err := yaml.Unmarshal(data, imports); err != nil {
+	if err := json.Unmarshal(data, imports); err != nil {
 		return nil, err
 	}
 
