@@ -25,5 +25,8 @@ func ImportsFromFile(path string) (*api.Imports, error) {
 		return nil, err
 	}
 
+	// TODO temporary hack: currently the landscaper does not support bool import data, hence it will be hardcoded to true until it's fixed
+	imports.MultiClusterDeploymentScenario = true
+
 	return imports, nil
 }

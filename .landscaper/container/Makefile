@@ -71,7 +71,7 @@ docker-push: ## Push docker image with the container-deployer.
 cnudie-generate-cd: ## Generate component descriptor.
 	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/generate-cd.sh
 
-cnudie-create-installation: ## Create landscaper installation
+cnudie-create-installation: ## Create landscaper installation.
 	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/create-installation.sh
 
 $(GOPATH)/bin/golangci-lint:

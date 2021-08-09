@@ -38,19 +38,19 @@ spec:
 
   imports:
     targets:
-    - name: applicationClusterTarget
-      target: "#applicationCluster"
-    - name: runtimeClusterTarget
-      target: "#runtimeCluster"
+    - name: application-cluster-target
+      target: "#application-cluster"
+    - name: runtime-cluster-target
+      target: "#runtime-cluster"
     data:
     - name: applicationClusterEndpoint
       configMapRef:
         key: applicationClusterEndpoint
         name: gardenlogin-container-deployer
-    - name: multiClusterDeploymentScenario
-      configMapRef:
-        key: multiClusterDeploymentScenario
-        name: gardenlogin-container-deployer
+#    - name: multiClusterDeploymentScenario
+#      configMapRef:
+#        key: multiClusterDeploymentScenario
+#        name: gardenlogin-container-deployer
     - name: namePrefix
       configMapRef:
         key: namePrefix

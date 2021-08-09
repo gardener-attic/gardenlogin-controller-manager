@@ -16,11 +16,11 @@ imports:
   - name: singleClusterTarget
     required: false
     targetType: landscaper.gardener.cloud/kubernetes-cluster
-  - name: multiClusterDeploymentScenario
-    required: true
-    type: data
-    schema:
-      type: boolean
+#  - name: multiClusterDeploymentScenario
+#    required: true
+#    type: data
+#    schema:
+#      type: boolean
 
   - name: namePrefix
     required: true
