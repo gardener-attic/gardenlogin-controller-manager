@@ -11,7 +11,7 @@ TMP_DIR="$(mktemp -d)"
 INSTALLATION_PATH="${TMP_DIR}/installation.yaml"
 CONFIGMAP_PATH="${TMP_DIR}/configmap.yaml"
 
-REGISTRY="${REGISTRY:-eu.gcr.io/gardener-project/development}"
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-eu.gcr.io/gardener-project/development}"
 
 endpointData=$(echo "${APPLICATION_CLUSTER_ENDPOINT}" | base64 -w0)
 multiClusterData=$(echo "true" | base64 -w0)
@@ -28,7 +28,7 @@ spec:
     ref:
       repositoryContext:
         type: ociRegistry
-        baseUrl: ${REGISTRY}
+        baseUrl: ${IMAGE_REGISTRY}
       componentName: github.com/gardener/gardenlogin-controller-manager/.landscaper/container
       version: ${EFFECTIVE_VERSION}
 

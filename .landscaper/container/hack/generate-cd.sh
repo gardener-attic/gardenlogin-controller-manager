@@ -7,7 +7,10 @@
 set -e
 
 SOURCE_PATH="$(dirname $0)/../../.."
-REPO_CTX="eu.gcr.io/gardener-project/development"
+LANDSCAPER_SOURCE_PATH="$(realpath $(dirname $0)/../..)"
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-eu.gcr.io/gardener-project/development}"
+CD_REGISTRY="${CD_REGISTRY:-eu.gcr.io/gardener-project/development}"
+COMPONENT_NAME="github.com/gardener/gardenlogin-controller-manager/.landscaper/container"
 CA_PATH="$(mktemp -d)"
 BASE_DEFINITION_PATH="${CA_PATH}/component-descriptor.yaml"
 
@@ -29,31 +32,43 @@ fi
 
 echo "> Generate Component Descriptor ${EFFECTIVE_VERSION}"
 echo "> Creating base definition"
-component-cli ca create "${CA_PATH}" \
-    --component-name=github.com/gardener/gardenlogin-controller-manager/.landscaper/container \
-    --component-version=${EFFECTIVE_VERSION} \
-    --repo-ctx=${REPO_CTX}
+component-cli component-archive create "${CA_PATH}" \
+    --component-name="${COMPONENT_NAME}" \
+    --component-version="${EFFECTIVE_VERSION}" \
+    --repo-ctx="${IMAGE_REGISTRY}"
 
 echo "> Extending resources.yaml: adding image of gardenlogin-container-deployer"
 RESOURCES_BASE_PATH="$(mktemp -d)"
-cp -R "../../.landscaper/" "${RESOURCES_BASE_PATH}"
-
 RESOURCES_FILE_PATH="${RESOURCES_BASE_PATH}/resources.yaml"
-cat << EOF >> ${RESOURCES_FILE_PATH}
+cp -R "${LANDSCAPER_SOURCE_PATH}/blueprint/" "${RESOURCES_BASE_PATH}"
+cp "${LANDSCAPER_SOURCE_PATH}/resources.yaml" "${RESOURCES_BASE_PATH}"
+
+cat << EOF >> "${RESOURCES_FILE_PATH}"
 ---
 type: ociImage
 name: gardenlogin-container-deployer
 relation: local
 access:
   type: ociRegistry
-  imageReference: eu.gcr.io/gardener-project/development/gardenlogin-container-deployer:${EFFECTIVE_VERSION}
+  imageReference: ${IMAGE_REGISTRY}/gardenlogin-container-deployer:${EFFECTIVE_VERSION}
 ...
 EOF
 
-echo "> Creating ctf"
-CTF_PATH=./gen/ctf.tar
-mkdir -p ./gen
-[ -e $CTF_PATH ] && rm ${CTF_PATH}
-CTF_PATH=${CTF_PATH} BASE_DEFINITION_PATH=${BASE_DEFINITION_PATH} CURRENT_COMPONENT_REPOSITORY=${REPO_CTX} RESOURCES_FILE_PATH=${RESOURCES_FILE_PATH} bash $SOURCE_PATH/.ci/component_descriptor
+echo "> Adding image resources to ${CA_PATH}"
+component-cli component-archive resources add "${CA_PATH}" "${RESOURCES_FILE_PATH}"
 
-component-cli ctf push --repo-ctx=${REPO_CTX} "${CTF_PATH}"
+echo "> Creating ctf folder"
+
+CTF_DIR="$(mktemp -d)"
+CTF_PATH="${CTF_DIR}/ctf.tar"
+
+COMPONENT_DESCRIPTOR_FILE_PATH="${CA_PATH}/component-descriptor.yaml"
+
+ADD_DEPENDENCIES_CMD="echo"
+
+CTF_PATH=${CTF_PATH} BASE_DEFINITION_PATH=${BASE_DEFINITION_PATH} \
+  COMPONENT_DESCRIPTOR_PATH=${COMPONENT_DESCRIPTOR_FILE_PATH} \
+  ADD_DEPENDENCIES_CMD=${ADD_DEPENDENCIES_CMD} bash $SOURCE_PATH/.ci/component_descriptor
+
+echo "> Uploading archive from ${CTF_PATH}"
+component-cli ctf push --repo-ctx=${CD_REGISTRY} "${CTF_PATH}"
