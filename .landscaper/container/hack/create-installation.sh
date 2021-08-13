@@ -43,10 +43,10 @@ spec:
       configMapRef:
         key: applicationClusterEndpoint
         name: gardenlogin-container-deployer
-#    - name: multiClusterDeploymentScenario
-#      configMapRef:
-#        key: multiClusterDeploymentScenario
-#        name: gardenlogin-container-deployer
+    - name: multiClusterDeploymentScenario
+      configMapRef:
+        key: multiClusterDeploymentScenario
+        name: gardenlogin-container-deployer
     - name: namePrefix
       configMapRef:
         key: namePrefix
