@@ -5,7 +5,7 @@ relation: local
 input:
   type: dir
   path: ./blueprint
-  mediaType: application/vnd.gardener.landscaper.blueprint.v1+tar+gzip
+  mediaType: application/vnd.gardener.landscaper.blueprint.layer.v1.tar+gzip
   compress: true
 ...
 ---

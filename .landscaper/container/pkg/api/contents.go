@@ -36,7 +36,7 @@ type Contents struct {
 	SingleClusterPath string
 }
 
-// TODO
+// NewContentsFromPath returns Contents struct for the given contentPath
 func NewContentsFromPath(contentPath string) Contents {
 	contents := Contents{
 		DefaultPath: filepath.Join(contentPath, "config", "default"),
