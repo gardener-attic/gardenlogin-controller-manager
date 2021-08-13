@@ -40,8 +40,16 @@ component-cli component-archive create "${CA_PATH}" \
 echo "> Extending resources.yaml: adding image of gardenlogin-container-deployer"
 RESOURCES_BASE_PATH="$(mktemp -d)"
 RESOURCES_FILE_PATH="${RESOURCES_BASE_PATH}/resources.yaml"
-cp -RL "${LANDSCAPER_SOURCE_PATH}/blueprint/" "${RESOURCES_BASE_PATH}"
+rsync -avrqL \
+  --exclude='*.pem' \
+  --exclude='*.crt' \
+  --exclude='*.key' \
+  --exclude='*.csr' \
+  --exclude='kubeconfig.yaml' \
+  "${LANDSCAPER_SOURCE_PATH}/blueprint" "${RESOURCES_BASE_PATH}"
 cp "${LANDSCAPER_SOURCE_PATH}/resources.yaml" "${RESOURCES_BASE_PATH}"
+
+echo "RESOURCES_BASE_PATH: $RESOURCES_BASE_PATH"
 
 cat << EOF >> "${RESOURCES_FILE_PATH}"
 ---
