@@ -25,7 +25,7 @@ spec:
       repositoryContext:
         type: ociRegistry
         baseUrl: ${CD_REGISTRY}
-      componentName: github.com/gardener/gardenlogin-controller-manager/.landscaper/container
+      componentName: github.com/gardener/gardenlogin-controller-manager
       version: ${EFFECTIVE_VERSION}
 
   blueprint:

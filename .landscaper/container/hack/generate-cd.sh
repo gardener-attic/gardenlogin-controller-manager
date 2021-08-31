@@ -10,7 +10,7 @@ SOURCE_PATH="$(dirname $0)/../../.."
 LANDSCAPER_SOURCE_PATH="$(realpath $(dirname $0)/../..)"
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-eu.gcr.io/gardener-project/development/images}"
 CD_REGISTRY="${CD_REGISTRY:-eu.gcr.io/gardener-project/development}"
-COMPONENT_NAME="github.com/gardener/gardenlogin-controller-manager/.landscaper/container"
+COMPONENT_NAME="github.com/gardener/gardenlogin-controller-manager"
 CA_PATH="$(mktemp -d)"
 BASE_DEFINITION_PATH="${CA_PATH}/component-descriptor.yaml"
 

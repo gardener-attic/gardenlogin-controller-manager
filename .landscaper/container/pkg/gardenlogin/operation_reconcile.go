@@ -6,9 +6,11 @@
 package gardenlogin
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -83,11 +85,17 @@ func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get stdout pipe of kustomize command: %w", err)
 	}
+	kustomizeStdErr, err := kustomizeCmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stdout pipe of kustomize command: %w", err)
+	}
 
 	kubectlCmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "apply", "-f", "-")
 
-	// pipe stdout of kustomize to stdin of kubectl
-	kubectlCmd.Stdin = kustomizeStdOut
+	capturedKustomizeStdOut := &bytes.Buffer{}
+
+	// pipe stdout of kustomize to stdin of kubectl and also capture what is read from the pipe
+	kubectlCmd.Stdin = io.TeeReader(kustomizeStdOut, capturedKustomizeStdOut)
 
 	outRc, err := kubectlCmd.StdoutPipe()
 	if err != nil {
@@ -102,14 +110,30 @@ func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 		return fmt.Errorf("failed to start applying kustomize build result using kubectl: %w", err)
 	}
 
-	if err := kustomizeCmd.Run(); err != nil {
-		return fmt.Errorf("failed to run kustomzie build for deployment for overlay %s: %w", overlayPath, err)
+	if err := kustomizeCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start kustomzie build for overlay %s: %w", overlayPath, err)
+	}
+
+	stdErr, err := ioutil.ReadAll(kustomizeStdErr)
+	if err != nil {
+		return fmt.Errorf("failed to read stderr of kustomize command: %w", err)
+	}
+
+	if err := kustomizeCmd.Wait(); err != nil {
+		stdOut := capturedKustomizeStdOut.String()
+		return fmt.Errorf("failed to wait for kustomzie build to exit for overlay %s\nStdout: %s: StdErr: %s:  %w", overlayPath, stdOut, stdErr, err)
 	}
 
 	stdOut, err := ioutil.ReadAll(outRc)
-	stdErr, err := ioutil.ReadAll(errRc)
+	if err != nil {
+		return fmt.Errorf("failed to read stdout of kubectl command")
+	}
+	stdErr, err = ioutil.ReadAll(errRc)
+	if err != nil {
+		return fmt.Errorf("failed to read stderr of kubectl command")
+	}
 	if err := kubectlCmd.Wait(); err != nil {
-		return fmt.Errorf("failed to  wait for the kubectl command to exit: \nStdout: %s: StdErr: %s:  %w", stdOut, stdErr, err)
+		return fmt.Errorf("failed to  wait for the kubectl command to exit for overlay %s:\nStdout: %s: StdErr: %s:  %w", overlayPath, stdOut, stdErr, err)
 	}
 
 	return nil
