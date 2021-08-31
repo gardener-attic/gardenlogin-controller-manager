@@ -12,7 +12,8 @@ WORKDIR /workspace
 RUN wget -O kubectl https://dl.k8s.io/release/${kubectl_version}/bin/linux/amd64/kubectl && \
     chmod +x kubectl
 # Get kustomize
-RUN wget -O kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${kustomize_version}/kustomize_${kustomize_version}_linux_amd64.tar.gz && \
+RUN wget -O kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${kustomize_version}/kustomize_${kustomize_version}_linux_amd64.tar.gz && \
+    tar -zxf kustomize.tar.gz && \
     chmod +x kustomize
 
 # Build the container-deployer binary
