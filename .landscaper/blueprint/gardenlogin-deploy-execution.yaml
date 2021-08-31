@@ -9,6 +9,8 @@ deployItems:
     args: []
     command: []
     importValues:
-      {{ toJson .imports | indent 2 }}
+      {{ toJson .imports | indent 6 }}
     componentDescriptor:
-      {{ toJson .componentDescriptorDef | indent 2 }}
+      {{ toJson .componentDescriptorDef | indent 6 }}
+    blueprint:
+      {{ toJson .blueprint | indent 6 }}
