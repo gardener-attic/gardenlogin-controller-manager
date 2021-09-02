@@ -16,11 +16,17 @@ resources:
 - webhook-admission
 - namespace.yaml
 
-vars:
-  - name: TLSCERT # somehow this var cannot be defined in the config/webhook-admission/kustomization.yaml
-    objref:
-      kind: Secret
-      version: v1
-      name: webhook-server-cert
-    fieldref:
-      fieldpath: data[tls.crt]
+replacements:
+- source:
+    kind: Secret
+    version: v1
+    name: webhook-server-cert
+    fieldPath: data.[tls.crt]
+  targets:
+  - select:
+      name: validating-webhook-configuration
+      kind: ValidatingWebhookConfiguration
+    fieldPaths:
+    - webhooks.[name=validating-create-update-gardenlogin.gardener.cloud].clientConfig.caBundle
+    options:
+      create: true

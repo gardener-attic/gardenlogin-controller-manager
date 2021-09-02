@@ -5,9 +5,3 @@
 resources:
 - admission_configurations.yaml
 - ../webhook
-
-patchesStrategicMerge:
-- admission_configurations_ca_patch.yaml
-
-configurations:
-  - kustomizeconfig.yaml

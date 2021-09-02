@@ -3,12 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Adds namespace to all resources.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - includeSelectors: true
+    pairs:
+      component: gardenlogin-manager
+
 namespace: gardenlogin-system # namespace should not start with garden- to prevent name clashes with project namespaces
-
 namePrefix: gardenlogin- # must match with namePrefix defined in ../../default/kustomization.yaml
-
-commonLabels:
-  component: gardenlogin-manager
 
 resources:
 - ../../default
@@ -18,11 +22,17 @@ resources:
 - webhook-admission
 - manager
 
-vars:
-  - name: TLSCERT # somehow this var cannot be defined in the config/webhook-admission/kustomization.yaml
-    objref:
-      kind: Secret
-      version: v1
-      name: webhook-server-cert
-    fieldref:
-      fieldpath: data[tls.crt]
+replacements:
+- source:
+    kind: Secret
+    version: v1
+    name: webhook-server-cert
+    fieldPath: data.[tls.crt]
+  targets:
+  - select:
+      name: validating-webhook-configuration
+      kind: ValidatingWebhookConfiguration
+    fieldPaths:
+    - webhooks.[name=validating-create-update-gardenlogin.gardener.cloud].clientConfig.caBundle
+    options:
+      create: true
