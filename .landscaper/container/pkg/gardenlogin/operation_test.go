@@ -27,11 +27,10 @@ var _ = Describe("Operation", func() {
 					GardenloginImage:   "",
 					KubeRbacProxyImage: "",
 				}
-				state    = api.State{}
 				contents = api.Contents{}
 			)
 
-			operationInterface, err := NewOperation(log, clock, imports, imageRefs, contents, state)
+			operationInterface, err := NewOperation(log, clock, imports, imageRefs, contents)
 			Expect(err).NotTo(HaveOccurred())
 
 			op, ok := operationInterface.(*operation)
@@ -42,7 +41,6 @@ var _ = Describe("Operation", func() {
 			Expect(op.clock).To(Equal(clock))
 			Expect(op.imports).To(Equal(imports))
 			Expect(op.contents).To(Equal(contents))
-			Expect(op.state).To(Equal(state))
 		})
 	})
 })

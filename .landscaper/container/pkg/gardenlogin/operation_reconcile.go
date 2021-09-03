@@ -10,9 +10,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gardener/gardener/pkg/utils"
 	"io"
 	"io/ioutil"
-	"os"
+	"k8s.io/apimachinery/pkg/api/equality"
+	kErros "k8s.io/apimachinery/pkg/api/errors"
 	"os/exec"
 	"regexp"
 	"time"
@@ -32,7 +34,7 @@ import (
 
 // Reconcile runs the reconcile operation.
 func (o *operation) Reconcile(ctx context.Context) error {
-	if err := o.setTlsCertificate(); err != nil {
+	if err := o.setTlsCertificate(ctx); err != nil {
 		return err
 	}
 
@@ -140,62 +142,118 @@ func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 }
 
 // loadOrGenerateTlsCertificate loads or generates the gardenlogin tls certificate.
-// It tries to restore the ca and tls certificate from the state
-// or generates new in case they are not valid or not within the validity threshold
-func (o *operation) loadOrGenerateTlsCertificate() (*secretsutil.Certificate, error) {
+// It tries to restore the tls certificate from a secret.
+// It generates a new ca and tls certificate in case none was restored, it is invalid or not within the validity threshold
+func (o *operation) loadOrGenerateTlsCertificate(ctx context.Context) (*secretsutil.Certificate, error) {
+	var rtClient client.Client
+	if o.imports.MultiClusterDeploymentScenario {
+		rtClient = o.multiCluster.runtimeCluster.client
+	} else {
+		rtClient = o.singleCluster.client
+	}
+
+	secret := &corev1.Secret{}
+	if err := rtClient.Get(ctx, client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TlsSecretSuffix}, secret); err != nil {
+		if !kErros.IsNotFound(err) {
+			return nil, err
+		}
+		secret = nil // not found
+	}
+
+	if secret != nil {
+		certificatePEM := secret.Data[corev1.TLSCertKey]
+
+		certificate, err := utils.DecodeCertificate(certificatePEM)
+		if err != nil {
+			o.log.Infof("failed to parse tls certificate: %w", err)
+		} else {
+			needsGeneration := certificateNeedsRenewal(certificate, o.clock.Now(), 0.8)
+			if !needsGeneration {
+				privateKey := secret.Data[corev1.TLSPrivateKeyKey]
+
+				return secretsutil.LoadCertificate("", privateKey, certificatePEM)
+			}
+		}
+	}
+
+	o.log.Info("generating new ca and tls certificate")
+
 	caCertConfig := &secretsutil.CertificateSecretConfig{
 		CertType:   secretsutil.CACert,
-		CommonName: Prefix + ":ca",
+		CommonName: fmt.Sprintf("%s:ca", o.imports.NamePrefix),
 	}
 
-	caCertResult, err := loadOrGenerateCertificate(o.state.CaKeyPemPath, o.state.CaPemPath, caCertConfig, o.clock)
+	caCert, err := caCertConfig.GenerateCertificate()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load or generate ca certificate: %w", err)
-	}
-
-	if !caCertResult.loaded {
-		o.log.Info("cleaning up gardenlogin tls certificate from state in order to generate a new certificate")
-		err := os.Remove(o.state.GardenloginTlsKeyPemPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to cleanup tls key pem file: %w", err)
-		}
-
-		err = os.Remove(o.state.GardenloginTlsPemPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to cleanup tls pem file: %w", err)
-		}
+		return nil, fmt.Errorf("failed to generate ca certificate: %w", err)
 	}
 
 	certConfig := &secretsutil.CertificateSecretConfig{
 		CertType:   secretsutil.ServerClientCert,
-		SigningCA:  caCertResult.certificate,
-		CommonName: fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", Prefix, o.imports.Namespace),
+		SigningCA:  caCert,
+		CommonName: fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", o.imports.NamePrefix, o.imports.Namespace),
 		DNSNames: []string{
-			fmt.Sprintf("%s-webhook-service", Prefix),
-			fmt.Sprintf("%s-webhook-service.%s", Prefix, o.imports.Namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc", Prefix, o.imports.Namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc.cluster", Prefix, o.imports.Namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", Prefix, o.imports.Namespace),
+			fmt.Sprintf("%s-webhook-service", o.imports.NamePrefix),
+			fmt.Sprintf("%s-webhook-service.%s", o.imports.NamePrefix, o.imports.Namespace),
+			fmt.Sprintf("%s-webhook-service.%s.svc", o.imports.NamePrefix, o.imports.Namespace),
+			fmt.Sprintf("%s-webhook-service.%s.svc.cluster", o.imports.NamePrefix, o.imports.Namespace),
+			fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", o.imports.NamePrefix, o.imports.Namespace),
 		},
 	}
 
-	certResult, err := loadOrGenerateCertificate(o.state.GardenloginTlsKeyPemPath, o.state.GardenloginTlsKeyPemPath, certConfig, o.clock)
+	cert, err := certConfig.GenerateCertificate()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load or generate certificate for webhook service: %w", err)
+		return nil, fmt.Errorf("failed to generate certificate for webhook service: %w", err)
 	}
 
-	cert := certResult.certificate
-	if cert == nil {
-		return nil, fmt.Errorf("no certificate returned")
+	return o.createOrUpdateTlsSecret(ctx, rtClient, cert)
+}
+
+// createOrUpdateTlsSecret creates or updates the tls secret for the webhook-server.
+func (o *operation) createOrUpdateTlsSecret(ctx context.Context, c client.Client, cert *secretsutil.Certificate) (*secretsutil.Certificate, error) {
+	o.log.Info("creating or updating tls certificate secret")
+
+	secret := &corev1.Secret{}
+	objKey := client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TlsSecretSuffix}
+	if err := c.Get(ctx, objKey, secret); err != nil {
+		if !kErros.IsNotFound(err) {
+			return nil, err
+		}
+
+		secret.Namespace = objKey.Namespace
+		secret.Name = objKey.Name
+		secret.Type = corev1.SecretTypeTLS
+		secret.Data = map[string][]byte{
+			corev1.TLSCertKey:       cert.CertificatePEM,
+			corev1.TLSPrivateKeyKey: cert.PrivateKeyPEM,
+		}
+
+		if err := c.Create(ctx, secret); err != nil {
+			return nil, fmt.Errorf("failed to store tls cert secret: %w", err)
+		}
+		return cert, nil
+	}
+
+	existing := secret.DeepCopyObject()
+	secret.Type = corev1.SecretTypeTLS
+	secret.Data[corev1.TLSCertKey] = cert.CertificatePEM
+	secret.Data[corev1.TLSPrivateKeyKey] = cert.PrivateKeyPEM
+
+	if equality.Semantic.DeepEqual(existing, secret) {
+		return cert, nil
+	}
+
+	if err := c.Update(ctx, secret); err != nil {
+		return nil, fmt.Errorf("failed to update tls cert secret: %w", err)
 	}
 
 	return cert, nil
 }
 
-// setTlsCertificate loads the tls certificate for the gardenlogin-controller-manager from the state or generates a new certificate
-// the tls key and tls pem file is written to the respective directory of the kustomize config
-func (o *operation) setTlsCertificate() error {
-	tlsCert, err := o.loadOrGenerateTlsCertificate()
+// setTlsCertificate loads the tls certificate for the gardenlogin-controller-manager from a secret or generates a new certificate.
+// The tls key and tls pem file is written to the respective directory of the kustomize config
+func (o *operation) setTlsCertificate(ctx context.Context) error {
+	tlsCert, err := o.loadOrGenerateTlsCertificate(ctx)
 	if err != nil {
 		return fmt.Errorf("could not load or generate gardenlogin tls certificate: %w", err)
 	}

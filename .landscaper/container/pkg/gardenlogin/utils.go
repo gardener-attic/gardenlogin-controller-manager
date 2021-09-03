@@ -57,24 +57,25 @@ func loadOrGenerateCertificate(tlsKeyPemPath string, tlsPemPath string, certific
 	}
 
 	if needsGeneration {
-		if certificate, err := certificateConfig.GenerateCertificate(); err != nil {
+		certificate, err := certificateConfig.GenerateCertificate()
+		if err != nil {
 			return nil, err
-		} else {
-			err := ioutil.WriteFile(tlsKeyPemPath, certificate.PrivateKeyPEM, 0600)
-			if err != nil {
-				return nil, fmt.Errorf("failed write private key pem to path %s: %w", tlsKeyPemPath, err)
-			}
-
-			err = ioutil.WriteFile(tlsPemPath, certificate.CertificatePEM, 0600)
-			if err != nil {
-				return nil, fmt.Errorf("failed write certificate pem to path %s: %w", tlsPemPath, err)
-			}
-
-			return &CertificateResult{
-				certificate: certificate,
-				loaded:      true,
-			}, nil
 		}
+
+		err = ioutil.WriteFile(tlsKeyPemPath, certificate.PrivateKeyPEM, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("failed write private key pem to path %s: %w", tlsKeyPemPath, err)
+		}
+
+		err = ioutil.WriteFile(tlsPemPath, certificate.CertificatePEM, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("failed write certificate pem to path %s: %w", tlsPemPath, err)
+		}
+
+		return &CertificateResult{
+			certificate: certificate,
+			loaded:      true,
+		}, nil
 	}
 
 	tlsKeyPem, err := ioutil.ReadFile(tlsKeyPemPath)

@@ -33,8 +33,8 @@ type Interface interface {
 	Delete(context.Context) error
 }
 
-// Prefix is the prefix for resource names related to the gardenlogin-controller-manager.
-const Prefix = "gardenlogin"
+// TlsSecretSuffix is the suffix for the secret that holds the tls certificate for the webhook-service.
+const TlsSecretSuffix = "-tls"
 
 // operation contains the configuration for a operation.
 type operation struct {
@@ -58,9 +58,6 @@ type operation struct {
 
 	// contents holds the content data of the landscaper component.
 	contents api.Contents
-
-	// state holds the state of the landscaper component.
-	state api.State
 }
 
 type multiCluster struct {
@@ -93,7 +90,6 @@ func NewOperation(
 	imports *api.Imports,
 	imageRefs *api.ImageRefs,
 	contents api.Contents,
-	state api.State,
 ) (Interface, error) {
 	var (
 		mc *multiCluster
@@ -134,7 +130,6 @@ func NewOperation(
 		imports:   imports,
 		imageRefs: *imageRefs,
 		contents:  contents,
-		state:     state,
 	}, nil
 }
 

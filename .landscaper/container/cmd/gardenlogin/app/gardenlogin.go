@@ -94,15 +94,12 @@ func run(ctx context.Context, log *logrus.Logger, clock gardenlogin.Clock, opts 
 		return fmt.Errorf("failed to validate contents: %w", err)
 	}
 
-	state := api.NewStateFromPath(opts.StatePath)
-
 	operation, err := gardenlogin.NewOperation(
 		log,
 		clock,
 		imports,
 		imageRefs,
 		contents,
-		state,
 	)
 	if err != nil {
 		return err
