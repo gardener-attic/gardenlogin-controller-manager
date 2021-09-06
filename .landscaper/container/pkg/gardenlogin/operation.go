@@ -83,6 +83,24 @@ type clientSet struct {
 	kubernetes kubernetes.Interface
 }
 
+// runtimeClusterClient returns the cluster struct for the runtime cluster depending on the MultiClusterDeploymentScenario import flag
+// application cluster and runtime cluster is the same in case of single cluster deployment
+func (o *operation) runtimeCluster() *cluster {
+	if !o.imports.MultiClusterDeploymentScenario {
+		return o.singleCluster
+	}
+	return o.multiCluster.runtimeCluster
+}
+
+// applicationClusterClient returns the cluster struct for the application cluster depending on the MultiClusterDeploymentScenario import flag
+// application cluster and runtime cluster is the same in case of single cluster deployment
+func (o *operation) applicationCluster() *cluster {
+	if !o.imports.MultiClusterDeploymentScenario {
+		return o.singleCluster
+	}
+	return o.multiCluster.applicationCluster
+}
+
 // NewOperation returns a new operation structure that implements Interface.
 func NewOperation(
 	log *logrus.Logger,

@@ -34,7 +34,8 @@ import (
 
 // Reconcile runs the reconcile operation.
 func (o *operation) Reconcile(ctx context.Context) error {
-	if err := o.setTlsCertificate(ctx); err != nil {
+	cert, err := o.setTlsCertificate(ctx)
+	if err != nil {
 		return err
 	}
 
@@ -76,6 +77,8 @@ func (o *operation) Reconcile(ctx context.Context) error {
 			return fmt.Errorf("failed to apply or delete overlay for runtime cluster: %w", err)
 		}
 	}
+
+	o.createOrUpdateTlsSecret(ctx, cert)
 
 	return nil
 }
@@ -145,12 +148,7 @@ func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 // It tries to restore the tls certificate from a secret.
 // It generates a new ca and tls certificate in case none was restored, it is invalid or not within the validity threshold
 func (o *operation) loadOrGenerateTlsCertificate(ctx context.Context) (*secretsutil.Certificate, error) {
-	var rtClient client.Client
-	if o.imports.MultiClusterDeploymentScenario {
-		rtClient = o.multiCluster.runtimeCluster.client
-	} else {
-		rtClient = o.singleCluster.client
-	}
+	rtClient := o.runtimeCluster().client
 
 	secret := &corev1.Secret{}
 	if err := rtClient.Get(ctx, client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TlsSecretSuffix}, secret); err != nil {
@@ -206,16 +204,17 @@ func (o *operation) loadOrGenerateTlsCertificate(ctx context.Context) (*secretsu
 		return nil, fmt.Errorf("failed to generate certificate for webhook service: %w", err)
 	}
 
-	return o.createOrUpdateTlsSecret(ctx, rtClient, cert)
+	return cert, nil
 }
 
-// createOrUpdateTlsSecret creates or updates the tls secret for the webhook-server.
-func (o *operation) createOrUpdateTlsSecret(ctx context.Context, c client.Client, cert *secretsutil.Certificate) (*secretsutil.Certificate, error) {
+// createOrUpdateTlsSecret creates or updates the tls secret for the webhook-server on the runtime cluster.
+func (o *operation) createOrUpdateTlsSecret(ctx context.Context, cert *secretsutil.Certificate) (*secretsutil.Certificate, error) {
 	o.log.Info("creating or updating tls certificate secret")
+	rtClient := o.runtimeCluster().client
 
 	secret := &corev1.Secret{}
 	objKey := client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TlsSecretSuffix}
-	if err := c.Get(ctx, objKey, secret); err != nil {
+	if err := rtClient.Get(ctx, objKey, secret); err != nil {
 		if !kErros.IsNotFound(err) {
 			return nil, err
 		}
@@ -228,7 +227,7 @@ func (o *operation) createOrUpdateTlsSecret(ctx context.Context, c client.Client
 			corev1.TLSPrivateKeyKey: cert.PrivateKeyPEM,
 		}
 
-		if err := c.Create(ctx, secret); err != nil {
+		if err := rtClient.Create(ctx, secret); err != nil {
 			return nil, fmt.Errorf("failed to store tls cert secret: %w", err)
 		}
 		return cert, nil
@@ -243,7 +242,7 @@ func (o *operation) createOrUpdateTlsSecret(ctx context.Context, c client.Client
 		return cert, nil
 	}
 
-	if err := c.Update(ctx, secret); err != nil {
+	if err := rtClient.Update(ctx, secret); err != nil {
 		return nil, fmt.Errorf("failed to update tls cert secret: %w", err)
 	}
 
@@ -252,23 +251,23 @@ func (o *operation) createOrUpdateTlsSecret(ctx context.Context, c client.Client
 
 // setTlsCertificate loads the tls certificate for the gardenlogin-controller-manager from a secret or generates a new certificate.
 // The tls key and tls pem file is written to the respective directory of the kustomize config
-func (o *operation) setTlsCertificate(ctx context.Context) error {
+func (o *operation) setTlsCertificate(ctx context.Context) (*secretsutil.Certificate, error) {
 	tlsCert, err := o.loadOrGenerateTlsCertificate(ctx)
 	if err != nil {
-		return fmt.Errorf("could not load or generate gardenlogin tls certificate: %w", err)
+		return nil, fmt.Errorf("could not load or generate gardenlogin tls certificate: %w", err)
 	}
 
 	err = ioutil.WriteFile(o.contents.GardenloginTlsKeyPemFile, tlsCert.PrivateKeyPEM, 0600)
 	if err != nil {
-		return fmt.Errorf("failed to write tls key pem file to path %s: %w", o.contents.GardenloginTlsKeyPemFile, err)
+		return nil, fmt.Errorf("failed to write tls key pem file to path %s: %w", o.contents.GardenloginTlsKeyPemFile, err)
 	}
 
 	err = ioutil.WriteFile(o.contents.GardenloginTlsPemFile, tlsCert.CertificatePEM, 0600)
 	if err != nil {
-		return fmt.Errorf("failed to write tls pem file to path %s: %w", o.contents.GardenloginTlsPemFile, err)
+		return nil, fmt.Errorf("failed to write tls pem file to path %s: %w", o.contents.GardenloginTlsPemFile, err)
 	}
 
-	return nil
+	return tlsCert, nil
 }
 
 // setImages uses kustomize cli to set the image for the controller (gardenlogin) and kube-rbac-proxy
@@ -324,7 +323,7 @@ func (o *operation) setGardenloginKubeconfig(ctx context.Context) error {
 	childCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	secret, err := waitUntilTokenAvailable(childCtx, o.multiCluster.applicationCluster.clientSet, serviceAccount)
+	secret, err := waitUntilTokenAvailable(childCtx, o.applicationCluster().clientSet, serviceAccount)
 	if err != nil {
 		return fmt.Errorf("failed to wait until token is available: %w", err)
 	}
