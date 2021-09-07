@@ -14,12 +14,12 @@ type Contents struct {
 	// ManagerPath holds the path of the "manager" folder in which the gardenlogin-controller-manager image is defined
 	ManagerPath string
 
-	// GardenloginTlsPath holds the path of the "tls" folder in which the tls certificate files are placed for kustomize's secretGenerator to pick them up
-	GardenloginTlsPath string
-	// GardenloginTlsPemFile holds the file path of the gardenlogin-controller-manager-tls.pem file for the webhook server
-	GardenloginTlsPemFile string
-	// GardenloginTlsKeyPemFile holds the file path of the gardenlogin-controller-manager-tls-key.pem file for the webhook server
-	GardenloginTlsKeyPemFile string
+	// GardenloginTLSPath holds the path of the "tls" folder in which the tls certificate files are placed for kustomize's secretGenerator to pick them up
+	GardenloginTLSPath string
+	// GardenloginTLSPemFile holds the file path of the gardenlogin-controller-manager-tls.pem file for the webhook server
+	GardenloginTLSPemFile string
+	// GardenloginTLSKeyPemFile holds the file path of the gardenlogin-controller-manager-tls-key.pem file for the webhook server
+	GardenloginTLSKeyPemFile string
 
 	// RuntimeManagerPath is the path to the manager directory of the runtime overlay
 	RuntimeManagerPath string
@@ -42,9 +42,9 @@ func NewContentsFromPath(contentPath string) Contents {
 		DefaultPath: filepath.Join(contentPath, "config", "default"),
 		ManagerPath: filepath.Join(contentPath, "config", "manager"),
 
-		GardenloginTlsPath:       filepath.Join(contentPath, "config", "secret", "tls"),
-		GardenloginTlsPemFile:    filepath.Join(contentPath, "config", "secret", "tls", "gardenlogin-controller-manager-tls.pem"),
-		GardenloginTlsKeyPemFile: filepath.Join(contentPath, "config", "secret", "tls", "gardenlogin-controller-manager-tls-key.pem"),
+		GardenloginTLSPath:       filepath.Join(contentPath, "config", "secret", "tls"),
+		GardenloginTLSPemFile:    filepath.Join(contentPath, "config", "secret", "tls", "gardenlogin-controller-manager-tls.pem"),
+		GardenloginTLSKeyPemFile: filepath.Join(contentPath, "config", "secret", "tls", "gardenlogin-controller-manager-tls-key.pem"),
 
 		RuntimeManagerPath:        filepath.Join(contentPath, "config", "overlay", "multi-cluster", "runtime", "manager"),
 		GardenloginKubeconfigPath: filepath.Join(contentPath, "config", "overlay", "multi-cluster", "runtime", "manager", "kubeconfig.yaml"),

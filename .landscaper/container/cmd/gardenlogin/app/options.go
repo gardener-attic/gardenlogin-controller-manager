@@ -44,6 +44,7 @@ func (o *Options) InitializeFromEnvironment() {
 	if op := os.Getenv("OPERATION"); len(op) > 0 {
 		o.OperationType = container.OperationType(op)
 	}
+
 	o.ImportsPath = os.Getenv(container.ImportsPathName)
 	o.ExportsPath = os.Getenv(container.ExportsPathName)
 	o.StatePath = os.Getenv(container.StatePathName)

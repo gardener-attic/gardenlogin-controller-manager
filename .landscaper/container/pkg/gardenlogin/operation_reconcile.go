@@ -10,17 +10,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gardener/gardener/pkg/utils"
 	"io"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/api/equality"
-	kErros "k8s.io/apimachinery/pkg/api/errors"
 	"os/exec"
 	"regexp"
 	"time"
 
+	"github.com/gardener/gardener/pkg/utils"
 	secretsutil "github.com/gardener/gardener/pkg/utils/secrets"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	kErros "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,7 +34,7 @@ import (
 
 // Reconcile runs the reconcile operation.
 func (o *operation) Reconcile(ctx context.Context) error {
-	cert, err := o.setTlsCertificate(ctx)
+	cert, err := o.setTLSCertificate(ctx)
 	if err != nil {
 		return err
 	}
@@ -78,18 +78,18 @@ func (o *operation) Reconcile(ctx context.Context) error {
 		}
 	}
 
-	o.createOrUpdateTlsSecret(ctx, cert)
-
-	return nil
+	return o.createOrUpdateTLSSecret(ctx, cert)
 }
 
 // buildAndApplyOverlay builds the given overlay using kustomize and applies the result using kubectl depending on the given deleteOverlay parameter
 func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 	kustomizeCmd := exec.Command("kustomize", "build", overlayPath)
+
 	kustomizeStdOut, err := kustomizeCmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stdout pipe of kustomize command: %w", err)
 	}
+
 	kustomizeStdErr, err := kustomizeCmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stdout pipe of kustomize command: %w", err)
@@ -106,6 +106,7 @@ func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 	if err != nil {
 		return err
 	}
+
 	errRc, err := kubectlCmd.StderrPipe()
 	if err != nil {
 		return err
@@ -133,10 +134,12 @@ func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read stdout of kubectl command")
 	}
+
 	stdErr, err = ioutil.ReadAll(errRc)
 	if err != nil {
 		return fmt.Errorf("failed to read stderr of kubectl command")
 	}
+
 	if err := kubectlCmd.Wait(); err != nil {
 		return fmt.Errorf("failed to  wait for the kubectl command to exit for overlay %s:\nStdout: %s: StdErr: %s:  %w", overlayPath, stdOut, stdErr, err)
 	}
@@ -144,17 +147,18 @@ func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
 	return nil
 }
 
-// loadOrGenerateTlsCertificate loads or generates the gardenlogin tls certificate.
+// loadOrGenerateTLSCertificate loads or generates the gardenlogin tls certificate.
 // It tries to restore the tls certificate from a secret.
 // It generates a new ca and tls certificate in case none was restored, it is invalid or not within the validity threshold
-func (o *operation) loadOrGenerateTlsCertificate(ctx context.Context) (*secretsutil.Certificate, error) {
+func (o *operation) loadOrGenerateTLSCertificate(ctx context.Context) (*secretsutil.Certificate, error) {
 	rtClient := o.runtimeCluster().client
 
 	secret := &corev1.Secret{}
-	if err := rtClient.Get(ctx, client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TlsSecretSuffix}, secret); err != nil {
+	if err := rtClient.Get(ctx, client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TLSSecretSuffix}, secret); err != nil {
 		if !kErros.IsNotFound(err) {
 			return nil, err
 		}
+
 		secret = nil // not found
 	}
 
@@ -207,16 +211,17 @@ func (o *operation) loadOrGenerateTlsCertificate(ctx context.Context) (*secretsu
 	return cert, nil
 }
 
-// createOrUpdateTlsSecret creates or updates the tls secret for the webhook-server on the runtime cluster.
-func (o *operation) createOrUpdateTlsSecret(ctx context.Context, cert *secretsutil.Certificate) (*secretsutil.Certificate, error) {
+// createOrUpdateTLSSecret creates or updates the tls secret for the webhook-server on the runtime cluster so that it can be fetched on a next reconcile run.
+func (o *operation) createOrUpdateTLSSecret(ctx context.Context, cert *secretsutil.Certificate) error {
 	o.log.Info("creating or updating tls certificate secret")
 	rtClient := o.runtimeCluster().client
 
+	objKey := client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TLSSecretSuffix}
+
 	secret := &corev1.Secret{}
-	objKey := client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TlsSecretSuffix}
 	if err := rtClient.Get(ctx, objKey, secret); err != nil {
 		if !kErros.IsNotFound(err) {
-			return nil, err
+			return err
 		}
 
 		secret.Namespace = objKey.Namespace
@@ -228,9 +233,10 @@ func (o *operation) createOrUpdateTlsSecret(ctx context.Context, cert *secretsut
 		}
 
 		if err := rtClient.Create(ctx, secret); err != nil {
-			return nil, fmt.Errorf("failed to store tls cert secret: %w", err)
+			return fmt.Errorf("failed to store tls cert secret: %w", err)
 		}
-		return cert, nil
+
+		return nil
 	}
 
 	existing := secret.DeepCopyObject()
@@ -239,32 +245,32 @@ func (o *operation) createOrUpdateTlsSecret(ctx context.Context, cert *secretsut
 	secret.Data[corev1.TLSPrivateKeyKey] = cert.PrivateKeyPEM
 
 	if equality.Semantic.DeepEqual(existing, secret) {
-		return cert, nil
+		return nil
 	}
 
 	if err := rtClient.Update(ctx, secret); err != nil {
-		return nil, fmt.Errorf("failed to update tls cert secret: %w", err)
+		return fmt.Errorf("failed to update tls cert secret: %w", err)
 	}
 
-	return cert, nil
+	return nil
 }
 
-// setTlsCertificate loads the tls certificate for the gardenlogin-controller-manager from a secret or generates a new certificate.
+// setTLSCertificate loads the tls certificate for the gardenlogin-controller-manager from a secret or generates a new certificate.
 // The tls key and tls pem file is written to the respective directory of the kustomize config
-func (o *operation) setTlsCertificate(ctx context.Context) (*secretsutil.Certificate, error) {
-	tlsCert, err := o.loadOrGenerateTlsCertificate(ctx)
+func (o *operation) setTLSCertificate(ctx context.Context) (*secretsutil.Certificate, error) {
+	tlsCert, err := o.loadOrGenerateTLSCertificate(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not load or generate gardenlogin tls certificate: %w", err)
 	}
 
-	err = ioutil.WriteFile(o.contents.GardenloginTlsKeyPemFile, tlsCert.PrivateKeyPEM, 0600)
+	err = ioutil.WriteFile(o.contents.GardenloginTLSKeyPemFile, tlsCert.PrivateKeyPEM, 0600)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write tls key pem file to path %s: %w", o.contents.GardenloginTlsKeyPemFile, err)
+		return nil, fmt.Errorf("failed to write tls key pem file to path %s: %w", o.contents.GardenloginTLSKeyPemFile, err)
 	}
 
-	err = ioutil.WriteFile(o.contents.GardenloginTlsPemFile, tlsCert.CertificatePEM, 0600)
+	err = ioutil.WriteFile(o.contents.GardenloginTLSPemFile, tlsCert.CertificatePEM, 0600)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write tls pem file to path %s: %w", o.contents.GardenloginTlsPemFile, err)
+		return nil, fmt.Errorf("failed to write tls pem file to path %s: %w", o.contents.GardenloginTLSPemFile, err)
 	}
 
 	return tlsCert, nil
@@ -274,12 +280,14 @@ func (o *operation) setTlsCertificate(ctx context.Context) (*secretsutil.Certifi
 func (o *operation) setImages() error {
 	cmd := exec.Command("kustomize", "edit", "set", "image", fmt.Sprintf("controller=%s", o.imageRefs.GardenloginImage))
 	cmd.Dir = o.contents.ManagerPath
+
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to set controller image %s, Output %s: %w", o.imageRefs.GardenloginImage, out, err)
 	}
 
 	cmd = exec.Command("kustomize", "edit", "set", "image", fmt.Sprintf("gcr.io/kubebuilder/kube-rbac-proxy=%s", o.imageRefs.KubeRbacProxyImage))
 	cmd.Dir = o.contents.ManagerPath
+
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to set kube-rbac-proxy image %s, Output %s: %w", o.imageRefs.KubeRbacProxyImage, out, err)
 	}
@@ -292,10 +300,12 @@ func setNamespace(overlayPaths []string, namespace string) error {
 	for _, overlayPath := range overlayPaths {
 		cmd := exec.Command("kustomize", "edit", "set", "namespace", namespace)
 		cmd.Dir = overlayPath
+
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to set namespace %s for overlay path %s, Output: %s: %w", namespace, out, overlayPath, err)
 		}
 	}
+
 	return nil
 }
 
@@ -304,6 +314,7 @@ func setNamePrefix(overlayPaths []string, namePrefix string) error {
 	for _, overlayPath := range overlayPaths {
 		cmd := exec.Command("kustomize", "edit", "set", "nameprefix", namePrefix)
 		cmd.Dir = overlayPath
+
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to set nameprefix %s for overlay path %s, Output: %s: %w", namePrefix, overlayPath, out, err)
 		}
@@ -314,8 +325,9 @@ func setNamePrefix(overlayPaths []string, namePrefix string) error {
 
 // setGardenloginKubeconfig generates a kubeconfig for the gardenlogin-controller-manager and adds it to the overlay using kustomize cli. It reads the token of from the controller-manager service account
 func (o *operation) setGardenloginKubeconfig(ctx context.Context) error {
-	serviceAccount := &corev1.ServiceAccount{}
 	serviceAccountName := fmt.Sprintf("%scontroller-manager", o.imports.NamePrefix)
+
+	serviceAccount := &corev1.ServiceAccount{}
 	if err := o.multiCluster.applicationCluster.client.Get(ctx, client.ObjectKey{Namespace: o.imports.Namespace, Name: serviceAccountName}, serviceAccount); err != nil {
 		return err
 	}
@@ -339,6 +351,7 @@ func (o *operation) setGardenloginKubeconfig(ctx context.Context) error {
 
 	cmd := exec.Command("kustomize", "edit", "add", "secret", "kubeconfig", fmt.Sprintf("--from-file=kubeconfig=%s", o.contents.GardenloginKubeconfigPath))
 	cmd.Dir = o.contents.RuntimeManagerPath
+
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to add kubeconfig secret %s using kustomize, Output: %s: %w", o.contents.GardenloginKubeconfigPath, out, err)
 	}

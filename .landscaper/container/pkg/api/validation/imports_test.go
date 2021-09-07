@@ -19,7 +19,7 @@ import (
 )
 
 var _ = Describe("Imports", func() {
-	Describe("#ValidateImports", func() {
+	Describe("#ValidateImports - multiClusterDeployment", func() {
 		var (
 			obj *api.Imports
 		)
@@ -40,6 +40,9 @@ var _ = Describe("Imports", func() {
 						},
 					},
 				},
+				MultiClusterDeploymentScenario: true,
+				Namespace:                      "foo",
+				NamePrefix:                     "bar",
 			}
 		})
 
@@ -47,22 +50,39 @@ var _ = Describe("Imports", func() {
 			Expect(ValidateImports(obj)).To(BeEmpty())
 		})
 
-		Context("hosting cluster", func() {
-			It("should fail for an invalid configuration", func() {
-				obj.RuntimeClusterTarget = lsv1alpha1.Target{}
-				obj.ApplicationClusterTarget = lsv1alpha1.Target{}
+		It("should require runtimeCluster and applicationCluster target to be set", func() {
+			obj.RuntimeClusterTarget = lsv1alpha1.Target{}
+			obj.ApplicationClusterTarget = lsv1alpha1.Target{}
 
-				Expect(ValidateImports(obj)).To(ConsistOf(
-					PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeRequired),
-						"Field": Equal("runtimeClusterTarget"),
-					})),
-					PointTo(MatchFields(IgnoreExtras, Fields{
-						"Type":  Equal(field.ErrorTypeRequired),
-						"Field": Equal("applicationClusterTarget"),
-					})),
-				))
-			})
+			Expect(ValidateImports(obj)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("runtimeClusterTarget"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("applicationClusterTarget"),
+				})),
+			))
+		})
+
+		It("should fail for invalid configuration", func() {
+			obj.MultiClusterDeploymentScenario = false
+
+			Expect(ValidateImports(obj)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeRequired),
+					"Field": Equal("singleClusterTarget"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("runtimeClusterTarget"),
+				})),
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("applicationClusterTarget"),
+				})),
+			))
 		})
 	})
 })

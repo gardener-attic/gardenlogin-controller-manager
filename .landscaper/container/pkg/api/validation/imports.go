@@ -56,7 +56,7 @@ func validateTargetNotSet(obj lsv1alpha1.Target, fldPath *field.Path) field.Erro
 	allErrs := field.ErrorList{}
 
 	if len(obj.Spec.Configuration.RawMessage) != 0 {
-		allErrs = append(allErrs, field.Required(fldPath, "target (kubeconfig) must not be set"))
+		allErrs = append(allErrs, field.Forbidden(fldPath, "target (kubeconfig) must not be set"))
 	}
 
 	return allErrs

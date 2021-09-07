@@ -28,6 +28,7 @@ func NewImageRefsFromComponentDescriptor(cd *cdv2.ComponentDescriptor) (*ImageRe
 	)
 
 	imageRefs := ImageRefs{}
+
 	var err error
 
 	imageRefs.GardenloginImage, err = getImageRef(resourceNameGardenlogin, cd)

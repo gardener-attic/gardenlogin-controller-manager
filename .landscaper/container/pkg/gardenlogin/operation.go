@@ -33,8 +33,8 @@ type Interface interface {
 	Delete(context.Context) error
 }
 
-// TlsSecretSuffix is the suffix for the secret that holds the tls certificate for the webhook-service.
-const TlsSecretSuffix = "-tls"
+// TLSSecretSuffix is the suffix for the secret that holds the tls certificate for the webhook-service.
+const TLSSecretSuffix = "-tls"
 
 // operation contains the configuration for a operation.
 type operation struct {
@@ -89,6 +89,7 @@ func (o *operation) runtimeCluster() *cluster {
 	if !o.imports.MultiClusterDeploymentScenario {
 		return o.singleCluster
 	}
+
 	return o.multiCluster.runtimeCluster
 }
 
@@ -98,6 +99,7 @@ func (o *operation) applicationCluster() *cluster {
 	if !o.imports.MultiClusterDeploymentScenario {
 		return o.singleCluster
 	}
+
 	return o.multiCluster.applicationCluster
 }
 
@@ -180,6 +182,7 @@ func newClusterFromTarget(target lsv1alpha1.Target) (*cluster, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	err = ioutil.WriteFile(kubeconfigFile.Name(), kubeconfig, 0600)
 	if err != nil {
 		return nil, err
@@ -194,6 +197,7 @@ func newClusterFromTarget(target lsv1alpha1.Target) (*cluster, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	kube, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not create kubenernetes clientset from config: %w", err)

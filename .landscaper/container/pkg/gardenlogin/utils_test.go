@@ -101,5 +101,6 @@ func generateCaCert() *secrets.Certificate {
 func getTime(s string) time.Time {
 	t, err := time.Parse(time.RFC3339, s)
 	Expect(err).ToNot(HaveOccurred())
+
 	return t
 }

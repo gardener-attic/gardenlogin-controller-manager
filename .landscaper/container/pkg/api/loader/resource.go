@@ -33,18 +33,21 @@ func ResourcesFromFile(resourcesFilePath string) ([]cdresources.ResourceOptions,
 func readResources(reader *os.File) ([]cdresources.ResourceOptions, error) {
 	resources := make([]cdresources.ResourceOptions, 0)
 	yamldecoder := yamlutil.NewYAMLOrJSONDecoder(reader, 1024)
+
 	for {
 		resource := cdresources.ResourceOptions{}
 		if err := yamldecoder.Decode(&resource); err != nil {
 			if err == io.EOF {
 				break
 			}
+
 			return nil, fmt.Errorf("unable to decode resource: %w", err)
 		}
 
 		if resource.Input != nil && resource.Access != nil {
 			return nil, fmt.Errorf("the resources %q input and access is defind. Only one option is allowed", resource.Name)
 		}
+
 		resources = append(resources, resource)
 	}
 

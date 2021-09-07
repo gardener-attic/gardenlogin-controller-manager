@@ -61,18 +61,21 @@ func NewCommandVirtualGarden() *cobra.Command {
 
 	verflag.AddFlags(cmd.Flags())
 	opts.AddFlags(cmd.Flags())
+
 	return cmd
 }
 
 // run runs the gardenlogin deployer.
 func run(ctx context.Context, log *logrus.Logger, clock gardenlogin.Clock, opts *Options) error {
 	log.Infof("Reading imports file from %s", opts.ImportsPath)
+
 	imports, err := loader.ImportsFromFile(opts.ImportsPath)
 	if err != nil {
 		return err
 	}
 
 	log.Infof("Reading component descriptor file from %s", opts.ComponentDescriptorPath)
+
 	cd, err := loader.ComponentDescriptorFromFile(opts.ComponentDescriptorPath)
 	if err != nil {
 		return err
@@ -84,11 +87,13 @@ func run(ctx context.Context, log *logrus.Logger, clock gardenlogin.Clock, opts 
 	}
 
 	log.Infof("Validating imports file")
+
 	if errList := validation.ValidateImports(imports); len(errList) > 0 {
 		return errList.ToAggregate()
 	}
 
 	log.Infof("Validating content path")
+
 	contents := api.NewContentsFromPath(opts.ContentPath)
 	if err := validation.ValidateContents(contents); err != nil {
 		return fmt.Errorf("failed to validate contents: %w", err)
@@ -110,5 +115,6 @@ func run(ctx context.Context, log *logrus.Logger, clock gardenlogin.Clock, opts 
 	} else if opts.OperationType == container.OperationDelete {
 		return operation.Delete(ctx)
 	}
+
 	return fmt.Errorf("unknown operation type: %q", opts.OperationType)
 }

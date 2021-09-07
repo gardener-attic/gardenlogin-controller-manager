@@ -7,26 +7,27 @@ package fake
 
 import "time"
 
-// FakeClock implements gardenlogin.Clock interface
-type FakeClock struct {
+// Clock implements gardenlogin.Clock interface
+type Clock struct {
 	FakeTime time.Time
 }
 
 // Now returns a constant time
-func (f *FakeClock) Now() time.Time {
+func (f *Clock) Now() time.Time {
 	return f.FakeTime
 }
 
-// NewFakeClock returns a fakeClock that can be used in tests
-func NewFakeClock() (*FakeClock, error) {
-	now, err := FakeNow()
+// NewClock returns a fakeClock that can be used in tests
+func NewClock() (*Clock, error) {
+	now, err := Now()
 	if err != nil {
 		return nil, err
 	}
-	return &FakeClock{FakeTime: now}, nil
+
+	return &Clock{FakeTime: now}, nil
 }
 
-// FakeNow returns a constant time
-func FakeNow() (time.Time, error) {
+// Now returns a constant time
+func Now() (time.Time, error) {
 	return time.Parse(time.RFC3339, "2017-12-14T23:34:00.000Z")
 }

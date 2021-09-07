@@ -43,14 +43,6 @@ func (h *ConfigmapValidator) getConfig() *util.ControllerManagerConfiguration {
 	return h.Config
 }
 
-//// Mainly used for tests to inject config
-//func (h *ConfigmapValidator) injectConfig(config *util.ControllerManagerConfiguration) {
-//	h.configMutex.Lock()
-//	defer h.configMutex.Unlock()
-//
-//	h.Config = config
-//}
-
 func (h *ConfigmapValidator) validatingKubeconfigConfigMapFn(ctx context.Context, c *corev1.ConfigMap, oldC *corev1.ConfigMap, admissionReq admissionv1.AdmissionRequest) (bool, string, error) {
 	fldValidations := getFieldValidations(c)
 	if err := validateRequiredFields(fldValidations); err != nil {

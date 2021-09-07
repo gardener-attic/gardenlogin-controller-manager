@@ -18,21 +18,27 @@ func ValidateContents(obj api.Contents) error {
 	if err := validatePathExists(obj.DefaultPath); err != nil {
 		return fmt.Errorf("validation failed for default path: %w", err)
 	}
+
 	if err := validatePathExists(obj.ManagerPath); err != nil {
 		return fmt.Errorf("validation failed for manager path: %w", err)
 	}
-	if err := validatePathExists(obj.GardenloginTlsPath); err != nil {
+
+	if err := validatePathExists(obj.GardenloginTLSPath); err != nil {
 		return fmt.Errorf("validation failed for tls path: %w", err)
 	}
+
 	if err := validatePathExists(obj.RuntimeManagerPath); err != nil {
 		return fmt.Errorf("validation failed for runtime manager path: %w", err)
 	}
+
 	if err := validatePathExists(obj.VirtualGardenOverlayPath); err != nil {
 		return fmt.Errorf("validation failed for virtual garden overlay path: %w", err)
 	}
+
 	if err := validatePathExists(obj.RuntimeOverlayPath); err != nil {
 		return fmt.Errorf("validation failed for runtime overlay path: %w", err)
 	}
+
 	if err := validatePathExists(obj.SingleClusterPath); err != nil {
 		return fmt.Errorf("validation failed for single cluster overlay path: %w", err)
 	}
@@ -46,11 +52,10 @@ func validatePathExists(path string) error {
 		return errors.New("path not set")
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	var err error
+	if _, err = os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("path %s does not exist", path)
-	} else {
-		return err
 	}
 
-	return nil
+	return err
 }

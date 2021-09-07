@@ -17,7 +17,7 @@ import (
 var _ = Describe("Operation", func() {
 	Describe("#NewOperation", func() {
 		It("should return the correct operation object", func() {
-			fakeClock, err := fake.NewFakeClock()
+			fakeClock, err := fake.NewClock()
 			Expect(err).ToNot(HaveOccurred())
 			var (
 				log       = logrus.New()
