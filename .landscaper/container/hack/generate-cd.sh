@@ -84,7 +84,7 @@ ADD_DEPENDENCIES_CMD="echo"
 
 CTF_PATH=${CTF_PATH} BASE_DEFINITION_PATH=${BASE_DEFINITION_PATH} \
   COMPONENT_DESCRIPTOR_PATH=${COMPONENT_DESCRIPTOR_FILE_PATH} \
-  ADD_DEPENDENCIES_CMD=${ADD_DEPENDENCIES_CMD} bash $SOURCE_PATH/.ci/component_descriptor
+  ADD_DEPENDENCIES_CMD=${ADD_DEPENDENCIES_CMD} bash "${SOURCE_PATH}/.ci/component_descriptor"
 
 echo "> Uploading archive from ${CTF_PATH}"
-component-cli ctf push --repo-ctx=${CD_REGISTRY} "${CTF_PATH}"
+component-cli ctf push --repo-ctx="${CD_REGISTRY}" "${CTF_PATH}"

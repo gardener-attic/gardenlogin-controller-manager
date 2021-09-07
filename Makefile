@@ -82,23 +82,23 @@ docker-push: ## Push docker image with the manager.
 ##@ Deployment
 
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+	$(KUSTOMIZE) build .landscaper/blueprint/config/crd | kubectl apply -f -
 
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+	$(KUSTOMIZE) build .landscaper/blueprint/config/crd | kubectl delete -f -
 
 deploy-rt: apply-image kustomize ## Multi-cluster use case: Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-	kustomize build config/overlay/multi-cluster/runtime | kubectl apply -f -
+	kustomize build .landscaper/blueprint/config/overlay/multi-cluster/runtime | kubectl apply -f -
 
 deploy-virtual: apply-image kustomize ## Multi-cluster use case: Deploy crd, admission configurations etc. in the configured Kubernetes cluster
-	kustomize build config/overlay/multi-cluster/virtual-garden | kubectl apply -f -
+	kustomize build .landscaper/blueprint/config/overlay/multi-cluster/virtual-garden | kubectl apply -f -
 
 deploy-singlecluster: apply-image ## Single-cluster use case: Deploy crd, admission configurations, controller etc. in the configured Kubernetes cluster
-	kustomize build config/overlay/single-cluster | kubectl apply -f -
+	kustomize build .landscaper/blueprint/config/overlay/single-cluster | kubectl apply -f -
 
 apply-image: manifests kustomize ## Apply gardenlogin controller and kube-rbac-proxy images according to the variables IMG and IMG_RBAC_PROXY
-	cd config/manager && $(KUSTOMIZE) edit set image "controller=${IMG}:${EFFECTIVE_VERSION}"
-	cd config/default && $(KUSTOMIZE) edit set image "quay.io/brancz/kube-rbac-proxy=${IMG_RBAC_PROXY}"
+	cd .landscaper/blueprint/config/manager && $(KUSTOMIZE) edit set image "controller=${IMG}:${EFFECTIVE_VERSION}"
+	cd .landscaper/blueprint/config/default && $(KUSTOMIZE) edit set image "quay.io/brancz/kube-rbac-proxy=${IMG_RBAC_PROXY}"
 
 $(GOPATH)/bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.40.1

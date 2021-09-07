@@ -65,7 +65,7 @@ multiClusterData=$(echo "true" | base64 -w0)
 namePrefixData="gardenlogin-"
 namespaceData="gardenlogin-system"
 
-cat << EOF > ${CONFIGMAP_PATH}
+cat << EOF > "${CONFIGMAP_PATH}"
 apiVersion: v1
 kind: ConfigMap
 metadata:

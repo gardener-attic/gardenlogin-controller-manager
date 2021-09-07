@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-path_tls_output="../config/secret/tls"
+path_tls_output="../.landscaper/blueprint/config/secret/tls"
 path_tls_config="../tls"
 
 ca_name="gardenlogin-ca"
