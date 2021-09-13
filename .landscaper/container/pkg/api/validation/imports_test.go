@@ -66,7 +66,7 @@ var _ = Describe("Imports", func() {
 			))
 		})
 
-		It("should fail for invalid configuration", func() {
+		It("should fail for missing single cluster configuration", func() {
 			obj.MultiClusterDeploymentScenario = false
 
 			Expect(ValidateImports(obj)).To(ConsistOf(
@@ -81,6 +81,28 @@ var _ = Describe("Imports", func() {
 				PointTo(MatchFields(IgnoreExtras, Fields{
 					"Type":  Equal(field.ErrorTypeForbidden),
 					"Field": Equal("applicationClusterTarget"),
+				})),
+			))
+		})
+
+		It("should fail for garden namespace", func() {
+			obj.Namespace = "garden"
+
+			Expect(ValidateImports(obj)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("namespace"),
+				})),
+			))
+		})
+
+		It("should fail for namespace with garden- prefix", func() {
+			obj.Namespace = "garden-foo"
+
+			Expect(ValidateImports(obj)).To(ConsistOf(
+				PointTo(MatchFields(IgnoreExtras, Fields{
+					"Type":  Equal(field.ErrorTypeForbidden),
+					"Field": Equal("namespace"),
 				})),
 			))
 		})

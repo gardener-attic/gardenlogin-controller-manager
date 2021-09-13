@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package gardenlogin
+package util
 
 import (
 	"time"
@@ -14,7 +14,7 @@ import (
 )
 
 var _ = Describe("Utils", func() {
-	Describe("#certificateNeedsRenewal", func() {
+	Describe("#CertificateNeedsRenewal", func() {
 		var (
 			notBefore time.Time
 			validity  time.Duration
@@ -35,11 +35,11 @@ var _ = Describe("Utils", func() {
 			It("should not require certificate renewal", func() {
 				now := notBefore.Add(7 * time.Second) // within 80% validity threshold
 				cert := generateClientCert(caCert, notBefore, validity).Certificate
-				Expect(certificateNeedsRenewal(cert, now, validityPercentage)).To(BeFalse())
+				Expect(CertificateNeedsRenewal(cert, now, validityPercentage)).To(BeFalse())
 
 				validityPercentage = 1                // complete validity range is used - 100%
 				now = notBefore.Add(10 * time.Second) // within 100% validity threshold
-				Expect(certificateNeedsRenewal(cert, now, validityPercentage)).To(BeFalse())
+				Expect(CertificateNeedsRenewal(cert, now, validityPercentage)).To(BeFalse())
 			})
 		})
 
@@ -47,7 +47,7 @@ var _ = Describe("Utils", func() {
 			It("should require certificate renewal", func() {
 				now := notBefore.Add(9 * time.Second) // not within 80% validity threshold
 				cert := generateClientCert(caCert, notBefore, validity).Certificate
-				Expect(certificateNeedsRenewal(cert, now, validityPercentage)).To(BeTrue())
+				Expect(CertificateNeedsRenewal(cert, now, validityPercentage)).To(BeTrue())
 
 			})
 		})
@@ -56,14 +56,14 @@ var _ = Describe("Utils", func() {
 			It("should require certificate renewal for expired certificate", func() {
 				now := notBefore.Add(validity + 1*time.Second)
 				cert := generateClientCert(caCert, notBefore, validity).Certificate
-				Expect(certificateNeedsRenewal(cert, now, validityPercentage)).To(BeTrue())
+				Expect(CertificateNeedsRenewal(cert, now, validityPercentage)).To(BeTrue())
 			})
 
 			It("should require certificate renewal for not yet valid certificate", func() {
 				notBefore = getTime("2017-01-01T00:00:00.000Z")
 				now := getTime("2016-01-01T00:00:00.000Z")
 				cert := generateClientCert(caCert, notBefore, validity).Certificate
-				Expect(certificateNeedsRenewal(cert, now, validityPercentage)).To(BeTrue())
+				Expect(CertificateNeedsRenewal(cert, now, validityPercentage)).To(BeTrue())
 			})
 		})
 	})

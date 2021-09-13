@@ -12,15 +12,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 
 	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
-	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -48,16 +45,16 @@ type operation struct {
 	log logrus.FieldLogger
 
 	// clock provides the current time
-	clock Clock
+	clock util.Clock
 
 	// imports contains the imports configuration.
 	imports *api.Imports
 
 	// imageRefs contains the image references from the component descriptor that are needed for the Deployments.
-	imageRefs api.ImageRefs
+	imageRefs *api.ImageRefs
 
 	// contents holds the content data of the landscaper component.
-	contents api.Contents
+	contents *api.Contents
 }
 
 type multiCluster struct {
@@ -77,9 +74,9 @@ type cluster struct {
 }
 
 type clientSet struct {
-	// client is the Kubernetes client for the cluster.
+	// client is the controller-runtime kubernetes client for the cluster.
 	client client.Client
-	// kubernetes is the kubernetes client set for the cluster.
+	// kubernetes is the client-go kubernetes client set for the cluster.
 	kubernetes kubernetes.Interface
 }
 
@@ -105,11 +102,11 @@ func (o *operation) applicationCluster() *cluster {
 
 // NewOperation returns a new operation structure that implements Interface.
 func NewOperation(
+	f util.Factory,
 	log *logrus.Logger,
-	clock Clock,
 	imports *api.Imports,
 	imageRefs *api.ImageRefs,
-	contents api.Contents,
+	contents *api.Contents,
 ) (Interface, error) {
 	var (
 		mc *multiCluster
@@ -117,12 +114,12 @@ func NewOperation(
 	)
 
 	if imports.MultiClusterDeploymentScenario {
-		runtimeCluster, err := newClusterFromTarget(imports.RuntimeClusterTarget)
+		runtimeCluster, err := newClusterFromTarget(f, imports.RuntimeClusterTarget)
 		if err != nil {
 			return nil, fmt.Errorf("could not create runtime cluster from target: %w", err)
 		}
 
-		applicationCluster, err := newClusterFromTarget(imports.ApplicationClusterTarget)
+		applicationCluster, err := newClusterFromTarget(f, imports.ApplicationClusterTarget)
 		if err != nil {
 			return nil, fmt.Errorf("could not create application cluster from target: %w", err)
 		}
@@ -134,7 +131,7 @@ func NewOperation(
 	} else {
 		var err error
 
-		sc, err = newClusterFromTarget(imports.SingleClusterTarget)
+		sc, err = newClusterFromTarget(f, imports.SingleClusterTarget)
 		if err != nil {
 			return nil, fmt.Errorf("could not create cluster from target: %w", err)
 		}
@@ -145,10 +142,10 @@ func NewOperation(
 		singleCluster: sc,
 
 		log:   log,
-		clock: clock,
+		clock: f.Clock(),
 
 		imports:   imports,
-		imageRefs: *imageRefs,
+		imageRefs: imageRefs,
 		contents:  contents,
 	}, nil
 }
@@ -172,7 +169,7 @@ func kubeconfigFromTarget(target lsv1alpha1.Target) ([]byte, error) {
 }
 
 // newClusterFromTarget returns a cluster struct for the given target and writes the kubeconfig of the target to a temporary file
-func newClusterFromTarget(target lsv1alpha1.Target) (*cluster, error) {
+func newClusterFromTarget(f util.Factory, target lsv1alpha1.Target) (*cluster, error) {
 	kubeconfig, err := kubeconfigFromTarget(target)
 	if err != nil {
 		return nil, fmt.Errorf("could not get kubeconfig from target: %w", err)
@@ -188,25 +185,12 @@ func newClusterFromTarget(target lsv1alpha1.Target) (*cluster, error) {
 		return nil, err
 	}
 
-	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeconfig)
-	if err != nil {
-		return nil, err
-	}
-
-	restConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	kube, err := kubernetes.NewForConfig(restConfig)
+	kube, err := f.ClientGoClientProvider().FromBytes(kubeconfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not create kubenernetes clientset from config: %w", err)
 	}
 
-	scheme := runtime.NewScheme()
-	utilruntime.Must(kubernetesscheme.AddToScheme(scheme))
-
-	client, err := client.New(restConfig, client.Options{Scheme: scheme})
+	client, err := f.ControllerRuntimeClientProvider().FromBytes(kubeconfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not create client from config: %w", err)
 	}

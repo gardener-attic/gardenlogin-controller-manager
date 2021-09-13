@@ -3,16 +3,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package gardenlogin
+package util
 
 import (
 	"crypto/x509"
 	"time"
 )
 
-// certificateNeedsRenewal returns true in case the certificate is not (yet) valid or in case the given validityThresholdPercentage is exceeded.
-// A validityThresholdPercentage lower than 100% should be given in case the certificate should be renewed well in advance before the certificate expires.
-func certificateNeedsRenewal(certificate *x509.Certificate, now time.Time, validityThresholdPercentage float64) bool {
+// CertificateNeedsRenewal returns true in case the certificate is not (yet) valid or in case the given validityThresholdPercentage is exceeded.
+// A validityThresholdPercentage lower than 1 (100%) should be given in case the certificate should be renewed well in advance before the certificate expires.
+func CertificateNeedsRenewal(certificate *x509.Certificate, now time.Time, validityThresholdPercentage float64) bool {
 	notBefore := certificate.NotBefore.UTC()
 	notAfter := certificate.NotAfter.UTC()
 

@@ -37,8 +37,8 @@ type Contents struct {
 }
 
 // NewContentsFromPath returns Contents struct for the given contentPath
-func NewContentsFromPath(contentPath string) Contents {
-	contents := Contents{
+func NewContentsFromPath(contentPath string) *Contents {
+	contents := &Contents{
 		DefaultPath: filepath.Join(contentPath, "config", "default"),
 		ManagerPath: filepath.Join(contentPath, "config", "manager"),
 

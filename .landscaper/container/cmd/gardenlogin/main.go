@@ -10,8 +10,7 @@ import (
 	"runtime"
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/cmd/gardenlogin/app"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
 )
 
 func main() {
@@ -19,8 +18,10 @@ func main() {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	ctx := signals.SetupSignalHandler()
-	if err := app.NewCommandVirtualGarden().ExecuteContext(ctx); err != nil {
+	f := &util.FactoryImpl{}
+	ctx := f.Context()
+
+	if err := app.NewCommandGardenlogin(f).ExecuteContext(ctx); err != nil {
 		panic(err)
 	}
 }

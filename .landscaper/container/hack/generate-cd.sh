@@ -17,7 +17,7 @@ BASE_DEFINITION_PATH="${CA_PATH}/component-descriptor.yaml"
 if ! which component-cli 1>/dev/null; then
   echo -n "component-cli is required to generate the component descriptors"
   echo -n "Trying to installing it..."
-  go get github.com/gardener/component-cli/cmd/component-cli
+  go install github.com/gardener/component-cli/cmd/component-cli@v0.29.0
 
   if ! which component-cli 1>/dev/null; then
     echo -n "component-cli was successfully installed but the binary cannot be found"

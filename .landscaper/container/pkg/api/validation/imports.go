@@ -37,6 +37,10 @@ func ValidateImports(obj *api.Imports) field.ErrorList {
 		allErrs = append(allErrs, field.Forbidden(field.NewPath("namespace"), "must not be prefixed with garden-"))
 	}
 
+	if obj.Namespace == "garden" {
+		allErrs = append(allErrs, field.Forbidden(field.NewPath("namespace"), "must not be the garden namespace"))
+	}
+
 	return allErrs
 }
 

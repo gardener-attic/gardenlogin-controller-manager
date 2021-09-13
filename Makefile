@@ -48,7 +48,7 @@ help: ## Display this help.
 ##@ Development
 
 manifests: controller-gen ## Generate ClusterRole object.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role paths="./controllers/..."
+	$(CONTROLLER_GEN) rbac:roleName=manager-role paths="./controllers/..." output:dir=".landscaper/blueprint/config/rbac"
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./controllers/..."
@@ -59,11 +59,8 @@ fmt: ## Run go fmt against code.
 lint: $(GOPATH)/bin/golangci-lint ## Run golangci-lint against code.
 	golangci-lint run ./... -E golint,whitespace,wsl --skip-files "zz_generated.*"
 
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: manifests generate fmt lint ## Run tests.
-	mkdir -p "${ENVTEST_ASSETS_DIR}"
-	test -f "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh || curl -sSLo "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/${CR_VERSION}/hack/setup-envtest.sh
-	source "${ENVTEST_ASSETS_DIR}"/setup-envtest.sh; fetch_envtest_tools "${ENVTEST_ASSETS_DIR}"; setup_envtest_env "${ENVTEST_ASSETS_DIR}"; go test ./... -coverprofile cover.out
+test: manifests generate fmt lint envtest ## Run tests.
+	go test ./... -coverprofile cover.out
 
 ##@ Build
 
@@ -105,22 +102,27 @@ $(GOPATH)/bin/golangci-lint:
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1)
 
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
+ENVTEST = $(shell pwd)/bin/setup-envtest
+envtest: ## Download envtest-setup locally if necessary.
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+	$(ENVTEST) use 1.21
+
+# go-install-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
+define go-install-tool
 @[ -f $(1) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

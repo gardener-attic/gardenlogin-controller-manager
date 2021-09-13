@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/loader"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
@@ -23,14 +24,16 @@ import (
 	"k8s.io/component-base/version/verflag"
 )
 
-// NewCommandVirtualGarden creates a *cobra.Command object with default parameters.
-func NewCommandVirtualGarden() *cobra.Command {
+// NewCommandGardenlogin creates a *cobra.Command object with default parameters.
+func NewCommandGardenlogin(f util.Factory) *cobra.Command {
 	opts := NewOptions()
 
 	cmd := &cobra.Command{
-		Use:   "gardenlogin-controller-manager",
+		Use:   "gardenlogin",
 		Short: "Launch the gardenlogin-controller-manager deployer",
-		Long:  `The virtual garden deployer deploys a virtual garden cluster into a hosting cluster.`,
+		Long: `
+			The gardenlogin deployer deploys a gardenlogin-controller-manager. 
+			Single-cluster as well as multi-cluster deployments with application and runtime cluster are supported.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			verflag.PrintAndExitIfRequested()
 
@@ -49,9 +52,7 @@ func NewCommandVirtualGarden() *cobra.Command {
 				log.Infof("FLAG: --%s=%s", flag.Name, flag.Value)
 			})
 
-			clock := gardenlogin.RealClock{}
-
-			if err := run(cmd.Context(), log, clock, opts); err != nil {
+			if err := run(cmd.Context(), f, log, opts); err != nil {
 				panic(err)
 			}
 
@@ -60,13 +61,12 @@ func NewCommandVirtualGarden() *cobra.Command {
 	}
 
 	verflag.AddFlags(cmd.Flags())
-	opts.AddFlags(cmd.Flags())
 
 	return cmd
 }
 
 // run runs the gardenlogin deployer.
-func run(ctx context.Context, log *logrus.Logger, clock gardenlogin.Clock, opts *Options) error {
+func run(ctx context.Context, f util.Factory, log *logrus.Logger, opts *Options) error {
 	log.Infof("Reading imports file from %s", opts.ImportsPath)
 
 	imports, err := loader.ImportsFromFile(opts.ImportsPath)
@@ -100,8 +100,8 @@ func run(ctx context.Context, log *logrus.Logger, clock gardenlogin.Clock, opts 
 	}
 
 	operation, err := gardenlogin.NewOperation(
+		f,
 		log,
-		clock,
 		imports,
 		imageRefs,
 		contents,

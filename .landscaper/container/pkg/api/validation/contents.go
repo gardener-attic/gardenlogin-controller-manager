@@ -14,7 +14,11 @@ import (
 )
 
 // ValidateContents validates an Contents object.
-func ValidateContents(obj api.Contents) error {
+func ValidateContents(obj *api.Contents) error {
+	if obj == nil {
+		return fmt.Errorf("no api contents object provided")
+	}
+
 	if err := validatePathExists(obj.DefaultPath); err != nil {
 		return fmt.Errorf("validation failed for default path: %w", err)
 	}

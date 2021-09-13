@@ -10,20 +10,14 @@ import (
 	"os"
 
 	"github.com/gardener/landscaper/apis/deployer/container"
-	"github.com/spf13/pflag"
 )
 
-// Options has all the context and parameters needed to run the virtual garden deployer.
+// Options has all the context and parameters needed to run the gardenlogin deployer.
 type Options struct {
 	// OperationType is the operation to be executed.
 	OperationType container.OperationType
 	// ImportsPath is the path to the imports file.
 	ImportsPath string
-	// ExportsPath is the path to the exports file. The parent directory exists; the export file itself must be created.
-	// The format of the exports file must be json or yaml.
-	ExportsPath string
-	// StatePath is the path to the state directory.
-	StatePath string
 	// ContentPath is the path to the content directory containing a copy of all blueprint data.
 	ContentPath string
 	// ComponentDescriptorPath is the path to the component descriptor file.
@@ -35,10 +29,6 @@ func NewOptions() *Options {
 	return &Options{OperationType: container.OperationReconcile}
 }
 
-// AddFlags adds flags for a specific Scheduler to the specified FlagSet.
-func (o *Options) AddFlags(fs *pflag.FlagSet) {
-}
-
 // InitializeFromEnvironment initializes the options from the found environment variables.
 func (o *Options) InitializeFromEnvironment() {
 	if op := os.Getenv("OPERATION"); len(op) > 0 {
@@ -46,8 +36,6 @@ func (o *Options) InitializeFromEnvironment() {
 	}
 
 	o.ImportsPath = os.Getenv(container.ImportsPathName)
-	o.ExportsPath = os.Getenv(container.ExportsPathName)
-	o.StatePath = os.Getenv(container.StatePathName)
 	o.ContentPath = os.Getenv(container.ContentPathName)
 
 	o.ComponentDescriptorPath = os.Getenv(container.ComponentDescriptorPathName)
@@ -61,14 +49,6 @@ func (o *Options) validate(args []string) error {
 
 	if len(o.ImportsPath) == 0 {
 		return fmt.Errorf("missing path for imports file")
-	}
-
-	if len(o.ExportsPath) == 0 {
-		return fmt.Errorf("missing path for exports file")
-	}
-
-	if len(o.StatePath) == 0 {
-		return fmt.Errorf("missing path for state")
 	}
 
 	if len(o.ContentPath) == 0 {

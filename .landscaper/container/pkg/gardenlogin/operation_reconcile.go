@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
+
 	"github.com/gardener/gardener/pkg/utils"
 	secretsutil "github.com/gardener/gardener/pkg/utils/secrets"
 	corev1 "k8s.io/api/core/v1"
@@ -62,11 +64,11 @@ func (o *operation) Reconcile(ctx context.Context) error {
 	if !o.imports.MultiClusterDeploymentScenario {
 		// single cluster deployment
 		if err := buildAndApplyOverlay(o.contents.SingleClusterPath, o.singleCluster.kubeconfig); err != nil {
-			return fmt.Errorf("failed to apply or delete overlay for single cluster deployment: %w", err)
+			return fmt.Errorf("failed to apply overlay for single cluster deployment: %w", err)
 		}
 	} else {
 		if err := buildAndApplyOverlay(o.contents.VirtualGardenOverlayPath, o.multiCluster.applicationCluster.kubeconfig); err != nil {
-			return fmt.Errorf("failed to apply or delete overlay for application cluster: %w", err)
+			return fmt.Errorf("failed to applyoverlay for application cluster: %w", err)
 		}
 
 		if err := o.setGardenloginKubeconfig(ctx); err != nil {
@@ -74,7 +76,7 @@ func (o *operation) Reconcile(ctx context.Context) error {
 		}
 
 		if err := buildAndApplyOverlay(o.contents.RuntimeOverlayPath, o.multiCluster.runtimeCluster.kubeconfig); err != nil {
-			return fmt.Errorf("failed to apply or delete overlay for runtime cluster: %w", err)
+			return fmt.Errorf("failed to apply overlay for runtime cluster: %w", err)
 		}
 	}
 
@@ -169,7 +171,7 @@ func (o *operation) loadOrGenerateTLSCertificate(ctx context.Context) (*secretsu
 		if err != nil {
 			o.log.Infof("failed to parse tls certificate: %w", err)
 		} else {
-			needsGeneration := certificateNeedsRenewal(certificate, o.clock.Now(), 0.8)
+			needsGeneration := util.CertificateNeedsRenewal(certificate, o.clock.Now(), 0.8)
 			if !needsGeneration {
 				privateKey := secret.Data[corev1.TLSPrivateKeyKey]
 
@@ -183,6 +185,7 @@ func (o *operation) loadOrGenerateTLSCertificate(ctx context.Context) (*secretsu
 	caCertConfig := &secretsutil.CertificateSecretConfig{
 		CertType:   secretsutil.CACert,
 		CommonName: fmt.Sprintf("%s:ca", o.imports.NamePrefix),
+		Now:        o.clock.Now,
 	}
 
 	caCert, err := caCertConfig.GenerateCertificate()
@@ -201,6 +204,7 @@ func (o *operation) loadOrGenerateTLSCertificate(ctx context.Context) (*secretsu
 			fmt.Sprintf("%s-webhook-service.%s.svc.cluster", o.imports.NamePrefix, o.imports.Namespace),
 			fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", o.imports.NamePrefix, o.imports.Namespace),
 		},
+		Now: o.clock.Now,
 	}
 
 	cert, err := certConfig.GenerateCertificate()

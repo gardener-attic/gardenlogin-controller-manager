@@ -151,7 +151,7 @@ var _ = Describe("ShootController", func() {
 		BeforeEach(func() {
 			suffix := test.StringWithCharset(randomLength, charset)
 
-			namespace = "test-namespace-" + suffix
+			namespace = "garden-" + suffix
 			Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 				Labels: map[string]string{

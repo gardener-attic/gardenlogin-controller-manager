@@ -17,8 +17,8 @@ else
 fi
 
 # Install golangci-lint (linting tool)
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.39.0
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.42.1
 
 cd "$SOURCE_PATH"
 
-golangci-lint run ./... -E golint,whitespace,wsl --skip-files "zz_generated.*"  --verbose --timeout 2m
+golangci-lint run ./... -E whitespace,wsl --skip-files "zz_generated.*"  --verbose --timeout 2m

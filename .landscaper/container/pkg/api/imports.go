@@ -34,7 +34,8 @@ type Imports struct {
 	// NamePrefix is the name prefix of the resources build by kustomize.
 	NamePrefix string `json:"namePrefix" yaml:"namePrefix"`
 
-	// Namespace is the namespace into which the resources shall be installed. It must not start with garden- to prevent name clashes with project namespaces
+	// Namespace is the namespace into which the resources shall be installed. The namespace must not be shared with other components as the namespace will be deleted by the deploy container on DELETE operation.
+	// It must not start with garden- to prevent name clashes with project namespaces and it must not be the garden namespace.
 	Namespace string `json:"namespace" yaml:"namespace"`
 
 	// Gardenlogin contains configuration for the gardenlogin-controller-manager.
