@@ -1,0 +1,18 @@
+---
+type: blueprint
+name: blueprint
+relation: local
+input:
+  type: dir
+  path: ./blueprint
+  mediaType: application/vnd.gardener.landscaper.blueprint.layer.v1.tar+gzip
+  compress: true
+...
+---
+type: ociImage
+name: kube-rbac-proxy
+relation: local
+access:
+  type: ociRegistry
+  imageReference: quay.io/brancz/kube-rbac-proxy:v0.8.0
+...

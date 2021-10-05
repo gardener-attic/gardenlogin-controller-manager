@@ -21,7 +21,7 @@ import (
 	gardenenvtest "github.com/gardener/gardener/pkg/envtest"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
@@ -52,14 +52,14 @@ func New(validator admission.Handler) Environment {
 
 	ginkgo.By("bootstrapping test environment")
 
-	failPolicy := admissionregistrationv1beta1.Fail
-	rules := []admissionregistrationv1beta1.RuleWithOperations{
+	failPolicy := admissionregistrationv1.Fail
+	rules := []admissionregistrationv1.RuleWithOperations{
 		{
-			Operations: []admissionregistrationv1beta1.OperationType{
-				admissionregistrationv1beta1.Create,
-				admissionregistrationv1beta1.Update,
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
+				admissionregistrationv1.Update,
 			},
-			Rule: admissionregistrationv1beta1.Rule{
+			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{""},
 				APIVersions: []string{"v1"},
 				Resources:   []string{"configmaps"},
@@ -69,7 +69,7 @@ func New(validator admission.Handler) Environment {
 
 	webhookInstallOptions := envtest.WebhookInstallOptions{
 		ValidatingWebhooks: []client.Object{
-			&admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+			&admissionregistrationv1.ValidatingWebhookConfiguration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-validating-webhook-configuration",
 				},
@@ -77,13 +77,13 @@ func New(validator admission.Handler) Environment {
 					Kind:       "ValidatingWebhookConfiguration",
 					APIVersion: "admissionregistration.k8s.io/v1beta1",
 				},
-				Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
+				Webhooks: []admissionregistrationv1.ValidatingWebhook{
 					{
 						Name:           "test-validating-create-update-gardenlogin.gardener.cloud",
 						FailurePolicy:  &failPolicy,
 						TimeoutSeconds: pointer.Int32Ptr(2),
-						ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-							Service: &admissionregistrationv1beta1.ServiceReference{
+						ClientConfig: admissionregistrationv1.WebhookClientConfig{
+							Service: &admissionregistrationv1.ServiceReference{
 								Path: &configMapValidatingWebhookPath,
 							},
 						},

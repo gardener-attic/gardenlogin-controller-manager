@@ -10,16 +10,17 @@ gardenlogin-controller-manager:
       publish:
         dockerimages:
           gardenlogin:
-            inputs:
-              repos:
-                source: ~ # default
             registry: 'gcr-readwrite'
             image: 'eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager'
+          gardenlogin-container-deployer:
+            registry: 'gcr-readwrite'
+            image: 'eu.gcr.io/gardener-project/gardener/gardenlogin-container-deployer'
+            dir: .landscaper/container
     steps:
       check:
-        image: 'golang:1.16.5'
+        image: 'golang:1.16.8'
       test:
-        image: 'golang:1.16.5'
+        image: 'golang:1.16.8'
   jobs:
     head-update:
       traits:
@@ -28,6 +29,7 @@ gardenlogin-controller-manager:
     pull-request:
       traits:
         pull-request: ~
+        component_descriptor: ~
     release:
       traits:
         version:

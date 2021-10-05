@@ -1,0 +1,47 @@
+apiVersion: landscaper.gardener.cloud/v1alpha1
+kind: Blueprint
+
+imports:
+  - name: applicationClusterEndpoint
+    required: false
+    type: data
+    schema:
+      type: string
+  - name: applicationClusterTarget
+    required: false
+    targetType: landscaper.gardener.cloud/kubernetes-cluster
+  - name: runtimeClusterTarget
+    required: false
+    targetType: landscaper.gardener.cloud/kubernetes-cluster
+  - name: singleClusterTarget
+    required: false
+    targetType: landscaper.gardener.cloud/kubernetes-cluster
+  - name: multiClusterDeploymentScenario
+    required: true
+    type: data
+    schema:
+      type: boolean
+
+  - name: namePrefix
+    required: true
+    type: data
+    schema:
+      type: string
+
+  - name: namespace
+    required: true
+    type: data
+    schema:
+      type: string
+
+
+exports: []
+
+exportExecutions: []
+
+subinstallations: []
+
+deployExecutions:
+  - file: /gardenlogin-deploy-execution.yaml
+    name: manifests
+    type: GoTemplate

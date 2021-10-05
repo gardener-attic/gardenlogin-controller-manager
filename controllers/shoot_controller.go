@@ -21,7 +21,7 @@ import (
 	"github.com/Masterminds/semver"
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
-	v1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	corev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
 	"github.com/gardener/gardener/pkg/utils/infodata"
 	"github.com/gardener/gardener/pkg/utils/secrets"
 	"github.com/go-logr/logr"
@@ -315,7 +315,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 
 	clusterIdentityConfigMap := &corev1.ConfigMap{}
 	key := types.NamespacedName{
-		Name:      v1beta1constants.ClusterIdentity,
+		Name:      corev1beta1constants.ClusterIdentity,
 		Namespace: "kube-system",
 	}
 
@@ -330,7 +330,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 	kubeconfigRequest := kubeconfigRequest{
 		namespace:             shoot.Namespace,
 		shootName:             shoot.Name,
-		gardenClusterIdentity: clusterIdentityConfigMap.Data[v1beta1constants.ClusterIdentity],
+		gardenClusterIdentity: clusterIdentityConfigMap.Data[corev1beta1constants.ClusterIdentity],
 	}
 
 	for _, address := range shoot.Status.AdvertisedAddresses {
@@ -396,7 +396,7 @@ var errCaNotProvisioned = errors.New("certificate authority not yet provisioned"
 
 // clusterCaCert reads the ca certificate from the gardener resource data
 func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
-	ca, err := infodata.GetInfoData(shootState.Spec.Gardener, v1beta1constants.SecretNameCACluster)
+	ca, err := infodata.GetInfoData(shootState.Spec.Gardener, corev1beta1constants.SecretNameCACluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ca infoData: %w", err)
 	}
