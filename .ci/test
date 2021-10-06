@@ -16,8 +16,32 @@ else
   export MAIN_REPO_DIR="$(readlink -f ${MAIN_REPO_DIR})"
 fi
 
-function run_test {
+ENVTEST_K8S_VERSION=${ENVTEST_K8S_VERSION:-"1.20"}
+KUBECTL_VERSION=${KUBECTL_VERSION:-"v1.22.1"}
+KUSTOMIZE_VERSION=${KUSTOMIZE_VERSION:-"v4.3.0"}
+OS=${OS:-"linux"}
+ARCH=${ARCH:-"amd64"}
 
+bin_dir="${MAIN_REPO_DIR}/bin"
+mkdir -p "${bin_dir}"
+
+pushd "${bin_dir}"
+
+echo "> Get kubectl"
+wget -qO kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${OS}/${ARCH}/kubectl"
+chmod +x kubectl
+export PATH="${bin_dir}/kubectl:$PATH"
+
+echo "> Get kustomize"
+wget -qO kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz"
+tar -zxf kustomize.tar.gz && rm kustomize.tar.gz
+chmod +x kustomize
+
+export PATH="${bin_dir}:$PATH"
+
+popd
+
+function run_test {
   local component=$1
   local target_dir=$2
   echo "> Test $component"
@@ -26,8 +50,6 @@ function run_test {
 
 
   make envtest
-
-  ENVTEST_K8S_VERSION=${ENVTEST_K8S_VERSION:-"1.20"}
 
   # --use-env allows overwriting the envtest tools path via the KUBEBUILDER_ASSETS env var just like it was before
   export KUBEBUILDER_ASSETS="$("bin/setup-envtest" use --use-env -p path ${ENVTEST_K8S_VERSION})"
@@ -38,7 +60,5 @@ function run_test {
   popd
 }
 
-
-run_test gardenlogin-controller-manager $MAIN_REPO_DIR
-run_test gardenlogin-container-deployer $MAIN_REPO_DIR/.landscaper/container
-
+run_test gardenlogin-controller-manager "${MAIN_REPO_DIR}"
+run_test gardenlogin-container-deployer "${MAIN_REPO_DIR}/.landscaper/container"
