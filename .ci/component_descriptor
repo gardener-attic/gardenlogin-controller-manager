@@ -13,7 +13,7 @@ SOURCE_PATH="$(dirname $0)/.."
 echo "> building component gardenlogin-controller-manager"
 
 CA_PATH="$(mktemp -d)"
-mv "$COMPONENT_DESCRIPTOR_PATH" "$CA_PATH/component-descriptor.yaml"
+cp "${BASE_DEFINITION_PATH}" "${CA_PATH}/component-descriptor.yaml"
 
 echo "CA_PATH ${CA_PATH}"
 
