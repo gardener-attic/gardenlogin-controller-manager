@@ -78,12 +78,9 @@ echo "> Creating ctf folder"
 CTF_DIR="$(mktemp -d)"
 CTF_PATH="${CTF_DIR}/ctf.tar"
 
-COMPONENT_DESCRIPTOR_FILE_PATH="${CA_PATH}/component-descriptor.yaml"
-
 ADD_DEPENDENCIES_CMD="echo"
 
 CTF_PATH=${CTF_PATH} BASE_DEFINITION_PATH=${BASE_DEFINITION_PATH} \
-  COMPONENT_DESCRIPTOR_PATH=${COMPONENT_DESCRIPTOR_FILE_PATH} \
   ADD_DEPENDENCIES_CMD=${ADD_DEPENDENCIES_CMD} bash "${SOURCE_PATH}/.ci/component_descriptor"
 
 echo "> Uploading archive from ${CTF_PATH}"
