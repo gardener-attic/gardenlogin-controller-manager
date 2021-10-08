@@ -7,7 +7,7 @@ package gardenlogin
 
 import (
 	"context"
-	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -19,7 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 // Interface is an interface for the operation.
@@ -152,20 +151,16 @@ func NewOperation(
 
 // kubeconfigFromTarget returns the kubeconfig from the given target.
 func kubeconfigFromTarget(target lsv1alpha1.Target) ([]byte, error) {
-	targetConfig := target.Spec.Configuration.RawMessage
-	targetConfigMap := make(map[string]string)
-
-	err := yaml.Unmarshal(targetConfig, &targetConfigMap)
-	if err != nil {
-		return nil, err
+	targetConfig := &lsv1alpha1.KubernetesClusterTargetConfig{}
+	if err := json.Unmarshal(target.Spec.Configuration.RawMessage, targetConfig); err != nil {
+		return nil, fmt.Errorf("unable to parse target confíguration: %w", err)
 	}
 
-	kubeconfig, ok := targetConfigMap["kubeconfig"]
-	if !ok {
-		return nil, errors.New("imported target does not contain a kubeconfig")
+	if targetConfig.Kubeconfig.StrVal == nil {
+		return nil, errors.New("kubeconfig is not set in target")
 	}
 
-	return base64.StdEncoding.DecodeString(kubeconfig)
+	return []byte(*targetConfig.Kubeconfig.StrVal), nil
 }
 
 // newClusterFromTarget returns a cluster struct for the given target and writes the kubeconfig of the target to a temporary file

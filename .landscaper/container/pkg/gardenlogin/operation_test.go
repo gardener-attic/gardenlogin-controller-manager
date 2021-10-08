@@ -6,15 +6,12 @@
 package gardenlogin
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/fake"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
 
-	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -64,24 +61,13 @@ var _ = Describe("Operation", func() {
 			f.WithClientGoClient(applicationKubeconfig, applicationKubeClient)
 
 			imports.MultiClusterDeploymentScenario = true
-			imports.RuntimeClusterTarget = lsv1alpha1.Target{
-				Spec: lsv1alpha1.TargetSpec{
-					Configuration: lsv1alpha1.AnyJSON{
-						RawMessage: json.RawMessage(fmt.Sprintf(
-							`{"kubeconfig":"%s"}`,
-							base64.StdEncoding.EncodeToString([]byte(runtimeKubeconfig)))),
-					},
-				},
-			}
-			imports.ApplicationClusterTarget = lsv1alpha1.Target{
-				Spec: lsv1alpha1.TargetSpec{
-					Configuration: lsv1alpha1.AnyJSON{
-						RawMessage: json.RawMessage(fmt.Sprintf(
-							`{"kubeconfig":"%s"}`,
-							base64.StdEncoding.EncodeToString([]byte(applicationKubeconfig)))),
-					},
-				},
-			}
+			target, err := test.NewKubernetesClusterTarget(&runtimeKubeconfig, nil)
+			Expect(err).ToNot(HaveOccurred())
+			imports.RuntimeClusterTarget = *target
+
+			target, err = test.NewKubernetesClusterTarget(&applicationKubeconfig, nil)
+			Expect(err).ToNot(HaveOccurred())
+			imports.ApplicationClusterTarget = *target
 
 			operationInterface, err := NewOperation(f, log, imports, imageRefs, contents)
 			Expect(err).NotTo(HaveOccurred())
@@ -113,15 +99,9 @@ var _ = Describe("Operation", func() {
 			f.WithClientGoClient(kubeconfig, kubeClient)
 
 			imports.MultiClusterDeploymentScenario = false
-			imports.SingleClusterTarget = lsv1alpha1.Target{
-				Spec: lsv1alpha1.TargetSpec{
-					Configuration: lsv1alpha1.AnyJSON{
-						RawMessage: json.RawMessage(fmt.Sprintf(
-							`{"kubeconfig":"%s"}`,
-							base64.StdEncoding.EncodeToString([]byte(kubeconfig)))),
-					},
-				},
-			}
+			target, err := test.NewKubernetesClusterTarget(&kubeconfig, nil)
+			Expect(err).ToNot(HaveOccurred())
+			imports.SingleClusterTarget = *target
 
 			operationInterface, err := NewOperation(f, log, imports, imageRefs, contents)
 			Expect(err).NotTo(HaveOccurred())
