@@ -28,11 +28,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kErros "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
+	quotav1 "k8s.io/apiserver/pkg/quota/v1"
 	clientauthenticationv1beta1 "k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 	clientcmdv1 "k8s.io/client-go/tools/clientcmd/api/v1"
@@ -48,6 +50,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+// KubeconfigConfigMapNameSuffix is the name suffix for the configMap that holds the kubeconfig for the corresponding shoot cluster
+const KubeconfigConfigMapNameSuffix = ".kubeconfig"
+
 // ShootReconciler reconciles a Shoot object
 type ShootReconciler struct {
 	Scheme *runtime.Scheme
@@ -59,8 +64,9 @@ type ShootReconciler struct {
 	configMutex                 sync.RWMutex
 }
 
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete;manage
-//+kubebuilder:rbac:groups="",resources=configmaps/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete;manage;
+//+kubebuilder:rbac:groups="",resources=configmaps/finalizers,verbs=update;
+//+kubebuilder:rbac:groups="",resources=resourcequotas,verbs=get;list;watch;
 //+kubebuilder:rbac:groups="core.gardener.cloud",resources=shootstates,verbs=get;list;watch;
 //+kubebuilder:rbac:groups="core.gardener.cloud",resources=shoots,verbs=get;list;watch;
 
@@ -77,7 +83,7 @@ func (r *ShootReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}, nil
 	}
 
-	res, err := r.handleRequest(ctx, req)
+	res, err := r.handleRequest(ctx, req, log)
 
 	r.decreaseCounterForNamespace(req.Namespace)
 
@@ -85,7 +91,7 @@ func (r *ShootReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ShootReconciler) SetupWithManager(mgr ctrl.Manager, config util.ShootControllerConfiguration) error {
+func (r *ShootReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, config util.ShootControllerConfiguration) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gardencorev1beta1.Shoot{}, builder.WithPredicates(r.shootPredicate())).
 		Owns(&corev1.ConfigMap{}, builder.WithPredicates(r.configMapPredicate())).
@@ -101,6 +107,51 @@ func (r *ShootReconciler) SetupWithManager(mgr ctrl.Manager, config util.ShootCo
 				}
 			}),
 			builder.WithPredicates(r.shootStatePredicate())).
+		Watches(&source.Kind{Type: &corev1.ResourceQuota{}},
+			handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+				// request reconciliation for all shoots in the namespace that do not already have a corresponding <shootname>.kubeconfig configMap.
+
+				shoots := &metav1.PartialObjectMetadataList{}
+				shoots.SetGroupVersionKind(gardencorev1beta1.SchemeGroupVersion.WithKind("ShootList"))
+				if err := r.Client.List(ctx, shoots, client.InNamespace(o.GetNamespace())); err != nil {
+					r.Log.Info("failed to list shoots", "shoots", o.GetNamespace())
+					return []reconcile.Request{}
+				}
+
+				configMaps := &metav1.PartialObjectMetadataList{}
+				configMaps.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMapList"))
+				listOption := client.MatchingLabels{
+					constants.GardenerOperationsRole: constants.GardenerOperationsKubeconfig,
+				}
+
+				if err := r.Client.List(ctx, configMaps, client.InNamespace(o.GetNamespace()), listOption); err != nil {
+					r.Log.Info("failed to list configMaps", "configMaps", o.GetNamespace())
+					return []reconcile.Request{}
+				}
+
+				var reconcileRequests []reconcile.Request
+				for _, shoot := range shoots.Items {
+					needsReconcile := true
+					for _, configMap := range configMaps.Items {
+						kubeconfigConfigMapName := fmt.Sprintf("%s%s", shoot.Name, KubeconfigConfigMapNameSuffix)
+						if configMap.Name == kubeconfigConfigMapName {
+							// there is already a matching kubeconfig configMap for this shoot, no need to reconcile
+							needsReconcile = false
+							break
+						}
+					}
+					if needsReconcile {
+						reconcileRequests = append(reconcileRequests, reconcile.Request{
+							NamespacedName: types.NamespacedName{
+								Name:      shoot.Name,
+								Namespace: shoot.Namespace,
+							},
+						})
+					}
+				}
+				return reconcileRequests
+			}),
+			builder.WithPredicates(r.resourceQuotaPredicate())).
 		Named("main").
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: config.MaxConcurrentReconciles,
@@ -187,7 +238,7 @@ func (r *ShootReconciler) configMapPredicate() predicate.Funcs {
 				return false
 			}
 
-			// ignore configmaps that do not have the kubeconfig role
+			// ignore configMaps that do not have the kubeconfig role
 			if old.Labels[constants.GardenerOperationsRole] != constants.GardenerOperationsKubeconfig &&
 				new.Labels[constants.GardenerOperationsRole] != constants.GardenerOperationsKubeconfig {
 				return false
@@ -262,20 +313,99 @@ func (r *ShootReconciler) shootStatePredicate() predicate.Funcs {
 	}
 }
 
-func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	kubeconfigName := fmt.Sprintf("%s.kubeconfig", req.Name)
-	kubeconfigConfigMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: kubeconfigName, Namespace: req.Namespace}}
+// resourceQuotaPredicate returns true for all create and delete events. It returns true for update events in case the resource quota for count/configmaps is increased or configMap quota was freed
+func (r *ShootReconciler) resourceQuotaPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			log := r.Log // do not set the event as log.WithValues as it may contain credentials
+
+			if e.ObjectOld == nil {
+				log.Error(nil, "Update event has no old runtime object to update")
+				return false
+			}
+
+			if e.ObjectNew == nil {
+				log.Error(nil, "Update event has no new runtime object for update")
+				return false
+			}
+
+			old, ok := e.ObjectOld.(*corev1.ResourceQuota)
+			if !ok {
+				log.Error(nil, "Update event old runtime object cannot be converted to ResourceQuota")
+				return false
+			}
+
+			// enhance log with name and namespace of the object for which the event occurred
+			log = log.WithValues("name", old.Name, "namespace", old.Namespace)
+
+			new, ok := e.ObjectNew.(*corev1.ResourceQuota)
+			if !ok {
+				log.Error(nil, "Update event new runtime object cannot be converted to ShootState")
+				return false
+			}
+
+			resourceName := []corev1.ResourceName{"count/configmaps"}
+
+			// if the hard quota or used quota for configMaps has increased, we want to handle the event
+
+			oldStatusHardQuota := quotav1.Mask(old.Status.Hard, resourceName)
+			newStatusHardQuota := quotav1.Mask(new.Status.Hard, resourceName)
+			if !quotav1.Equals(oldStatusHardQuota, newStatusHardQuota) {
+				// hard quota has changed, but we are only interested if the new hard quota is HIGHER, which means that the quota was increased
+				quotaIncreased := util.LessThan(oldStatusHardQuota, newStatusHardQuota)
+				if quotaIncreased {
+					return true
+				}
+			}
+
+			oldStatusUsedQuota := quotav1.Mask(old.Status.Used, resourceName)
+			newStatusUsedQuota := quotav1.Mask(new.Status.Used, resourceName)
+			if !quotav1.Equals(oldStatusUsedQuota, newStatusUsedQuota) {
+				// used quota has changed, but we are only interested if we now have free capacity
+				oldHadFreeCapacity := util.LessThan(oldStatusUsedQuota, oldStatusHardQuota)
+				newHasFreeCapacity := util.LessThan(newStatusUsedQuota, newStatusHardQuota)
+				capacityFreed := !oldHadFreeCapacity && newHasFreeCapacity
+
+				if capacityFreed {
+					return true
+				}
+			}
+
+			// no change detected that is relevant for this controller
+			return false
+		},
+	}
+}
+
+func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request, log logr.Logger) (ctrl.Result, error) {
+	name := fmt.Sprintf("%s%s", req.Name, KubeconfigConfigMapNameSuffix)
+	kubeconfigConfigMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: req.Namespace}}
 
 	// fetch Shoot
 	shoot := &gardencorev1beta1.Shoot{}
 
 	if err := r.Client.Get(ctx, req.NamespacedName, shoot); err != nil {
 		if kErros.IsNotFound(err) {
-			// shoot does not exist anymore - cleanup kubeconfig configmap
+			// shoot does not exist anymore - cleanup kubeconfig configMap
 			return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
 		}
 		// Error reading the object - requeue the request
 		return ctrl.Result{}, err
+	}
+
+	// We confirmed that the shoot still exists.
+	// Now we verify that we have sufficient quota in case the kubeconfig configMap does not exist yet
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(kubeconfigConfigMap), kubeconfigConfigMap); err != nil {
+		if kErros.IsNotFound(err) {
+			if sufficient, err := r.hasSufficientQuota(ctx, req, "count/configmaps"); err != nil {
+				return ctrl.Result{}, err
+			} else if !sufficient {
+				log.Info("configMap quota is not sufficient, will try again later")
+				return ctrl.Result{RequeueAfter: r.Config.Controllers.Shoot.QuotaExceededRetryDelay}, nil
+			} // else: we got enough configMap quota and can continue
+		} else {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// fetch ShootState
@@ -283,7 +413,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 
 	if err := r.Get(ctx, req.NamespacedName, shootState); err != nil {
 		if kErros.IsNotFound(err) {
-			// shootstate does not exist anymore - cleanup kubeconfig configmap
+			// shootstate does not exist anymore - cleanup kubeconfig configMap
 			return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
 		}
 		// Error reading the object - requeue the request
@@ -291,17 +421,18 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 	}
 
 	if shootState.DeletionTimestamp != nil {
-		// shootstate is in deletion - cleanup kubeconfig configmap
+		// shootstate is in deletion - cleanup kubeconfig configMap
 		return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
 	}
 
 	if shoot.DeletionTimestamp != nil {
-		// shoot is in deletion - cleanup kubeconfig configmap
+		// shoot is in deletion - cleanup kubeconfig configMap
 		return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
 	}
 
 	if len(shoot.Status.AdvertisedAddresses) == 0 {
-		return ctrl.Result{}, errors.New("no kube-apiserver advertised addresses in Shoot .status.advertisedAddresses")
+		// we have a watch on the shoot and changes to the advertised addresses should trigger a new reconcile anyhow so there is no need to requeue it immediately
+		return ctrl.Result{RequeueAfter: 60 * time.Minute}, nil
 	}
 
 	caCert, err := clusterCaCert(shootState)
@@ -324,7 +455,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 	}
 
 	if clusterIdentityConfigMap.Data == nil {
-		return ctrl.Result{}, errors.New("cluster identity configmap data not set")
+		return ctrl.Result{}, errors.New("cluster identity configMap data not set")
 	}
 
 	kubeconfigRequest := kubeconfigRequest{
@@ -386,10 +517,43 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 		kubeconfigConfigMap.Data[constants.DataKeyKubeconfig] = string(kubeconfig)
 		return nil
 	}); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create or update kubeconfig configmap %s/%s: %w", kubeconfigConfigMap.Namespace, kubeconfigConfigMap.Name, err)
+		return ctrl.Result{}, fmt.Errorf("failed to create or update kubeconfig configMap %s/%s: %w", kubeconfigConfigMap.Namespace, kubeconfigConfigMap.Name, err)
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *ShootReconciler) hasSufficientQuota(ctx context.Context, req ctrl.Request, resourceName corev1.ResourceName) (bool, error) {
+	list := &corev1.ResourceQuotaList{}
+
+	err := r.Client.List(ctx, list, client.InNamespace(req.Namespace))
+	if err != nil {
+		return false, err
+	}
+
+	for _, resourceQuota := range list.Items {
+		if !quotav1.Contains(quotav1.ResourceNames(resourceQuota.Spec.Hard), resourceName) {
+			continue
+		}
+
+		if !quotav1.Contains(quotav1.ResourceNames(resourceQuota.Status.Hard), resourceName) {
+			return false, fmt.Errorf("could not determine hard resource quota status. Status does not seem to be up-to-date")
+		}
+
+		if !quotav1.Contains(quotav1.ResourceNames(resourceQuota.Status.Used), resourceName) {
+			return false, fmt.Errorf("could not determine used resource quota status. Status does not seem to be up-to-date")
+		}
+
+		requestedUsage := corev1.ResourceList{resourceName: resource.MustParse("1")}
+		newUsage := quotav1.Add(resourceQuota.Status.Used, requestedUsage)
+		maskedNewUsage := quotav1.Mask(newUsage, quotav1.ResourceNames(requestedUsage))
+
+		if allowed, _ := quotav1.LessThanOrEqual(maskedNewUsage, resourceQuota.Status.Hard); !allowed {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 var errCaNotProvisioned = errors.New("certificate authority not yet provisioned")
@@ -572,13 +736,13 @@ func (r *ShootReconciler) getConfig() *util.ControllerManagerConfiguration {
 	return r.Config
 }
 
-//// injectConfig is mainly used for tests to inject util.ControllerManagerConfiguration configuration
-//func (r *ShootReconciler) injectConfig(config *util.ControllerManagerConfiguration) {
-//	r.configMutex.Lock()
-//	defer r.configMutex.Unlock()
-//
-//	r.Config = config
-//}
+// injectConfig is mainly used for tests to inject util.ControllerManagerConfiguration configuration
+func (r *ShootReconciler) injectConfig(config *util.ControllerManagerConfiguration) {
+	r.configMutex.Lock()
+	defer r.configMutex.Unlock()
+
+	r.Config = config
+}
 
 func (r *ShootReconciler) increaseCounterForNamespace(namespace string) error {
 	r.mutex.Lock()

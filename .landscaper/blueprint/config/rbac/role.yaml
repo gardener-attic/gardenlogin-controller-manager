@@ -26,6 +26,14 @@ rules:
   verbs:
   - update
 - apiGroups:
+  - ""
+  resources:
+  - resourcequotas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - core.gardener.cloud
   resources:
   - shoots

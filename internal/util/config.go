@@ -8,6 +8,7 @@ package util
 
 import (
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -39,6 +40,11 @@ type ShootControllerConfiguration struct {
 
 	// MaxConcurrentReconcilesPerNamespace is the maximum number of concurrent Reconciles which can be run per Namespace (independent of the user who created the Shoot resource). Defaults to 3.
 	MaxConcurrentReconcilesPerNamespace int `yaml:"maxConcurrentReconcilesPerNamespace"`
+
+	// QuotaExceededRetryDelay is the duration, after which the reconciliation will be retried again in case the configMap quota is exceeded.
+	// Note that in case the resource quota for count/configmaps is increased or configMap quota was freed a reconciliation is requested for all shoots in the namespace that do not already have a corresponding <shootname>.kubeconfig configMap.
+	// Defaults to 24 hours.
+	QuotaExceededRetryDelay time.Duration
 }
 
 // ControllerManagerWebhookConfiguration defines the configuration of the admission webhooks.
@@ -49,7 +55,7 @@ type ControllerManagerWebhookConfiguration struct {
 
 // ConfigMapValidatingWebhookConfiguration defines the configuration of the validating webhook.
 type ConfigMapValidatingWebhookConfiguration struct {
-	// MaxObjectSize is the maximum size of a configmap resource in bytes. Defaults to 102400.
+	// MaxObjectSize is the maximum size of a configMap resource in bytes. Defaults to 102400.
 	MaxObjectSize int `yaml:"maxObjectSize"`
 }
 
@@ -60,6 +66,7 @@ func ReadControllerManagerConfiguration(configFile string) (*ControllerManagerCo
 			Shoot: ShootControllerConfiguration{
 				MaxConcurrentReconciles:             50,
 				MaxConcurrentReconcilesPerNamespace: 3,
+				QuotaExceededRetryDelay:             24 * time.Hour,
 			},
 		},
 		Webhooks: ControllerManagerWebhookConfiguration{
@@ -69,8 +76,10 @@ func ReadControllerManagerConfiguration(configFile string) (*ControllerManagerCo
 		},
 	}
 
-	if err := readFile(configFile, &cfg); err != nil {
-		return nil, err
+	if configFile != "" {
+		if err := readFile(configFile, &cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := validateConfig(&cfg); err != nil {

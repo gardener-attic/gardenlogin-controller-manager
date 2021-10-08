@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener con
 SPDX-License-Identifier: Apache-2.0
 */
 
-package controllers_test
+package controllers
 
 import (
 	"encoding/json"
@@ -53,6 +53,9 @@ var _ = Describe("ShootController", func() {
 		interval = time.Millisecond * 250
 	)
 	BeforeEach(func() {
+		cmConfig = test.DefaultConfiguration()
+		shootReconciler.injectConfig(cmConfig)
+
 		By("ensuring that required resources for shoot and shootstate exist")
 		Expect(k8sClient.Create(ctx, &gardencorev1beta1.ControllerRegistration{
 			ObjectMeta: metav1.ObjectMeta{Name: "foo"},
@@ -140,6 +143,11 @@ var _ = Describe("ShootController", func() {
 			shoot               *gardencorev1beta1.Shoot
 			shootState          *gardencorev1alpha1.ShootState
 			advertisedAddresses []gardencorev1beta1.ShootAdvertisedAddress
+
+			hardQuota         string
+			usedQuota         string
+			resourceQuota     *corev1.ResourceQuota
+			withResourceQuota bool
 		)
 
 		const (
@@ -256,9 +264,36 @@ var _ = Describe("ShootController", func() {
 				Namespace: namespace,
 				Name:      shoot.Name + ".kubeconfig",
 			}
+
+			resourceQuota = &corev1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gardener",
+					Namespace: namespace,
+				},
+			}
+			withResourceQuota = false
 		})
 
 		JustBeforeEach(func() {
+			if withResourceQuota {
+				By("creating resourceQuota")
+				resourceQuota.Spec.Hard = corev1.ResourceList{
+					"count/configmaps": resource.MustParse(hardQuota),
+				}
+				Expect(k8sClient.Create(ctx, resourceQuota)).To(Succeed())
+
+				By("patching resource quota status")
+				resourceQuotaCopy := resourceQuota.DeepCopy()
+				resourceQuota.Status.Used = corev1.ResourceList{
+					"count/configmaps": resource.MustParse(usedQuota),
+				}
+				resourceQuota.Status.Hard = corev1.ResourceList{
+					"count/configmaps": resource.MustParse(hardQuota),
+				}
+				Expect(k8sClient.Status().Patch(ctx, resourceQuota, client.MergeFrom(resourceQuotaCopy))).To(Succeed())
+			}
+
+			By("creating shoot")
 			Expect(k8sClient.Create(ctx, shoot)).To(Succeed())
 
 			By("patching shoot status")
@@ -266,10 +301,11 @@ var _ = Describe("ShootController", func() {
 			shoot.Status.AdvertisedAddresses = advertisedAddresses
 			Expect(k8sClient.Status().Patch(ctx, shoot, client.MergeFrom(shootCopy))).To(Succeed())
 
+			By("creating shootstate")
 			Expect(k8sClient.Create(ctx, shootState)).To(Succeed())
 		})
 
-		It("should create kubeconfig configmap", func() {
+		It("should create kubeconfig configMap", func() {
 			shoot.Spec.Kubernetes.Version = k8sVersion
 
 			var kubeconfig string
@@ -320,7 +356,31 @@ var _ = Describe("ShootController", func() {
 			}))
 		})
 
-		It("should delete kubeconfig configmap", func() {
+		It("should restore kubeconfig configMap", func() {
+			shoot.Spec.Kubernetes.Version = k8sVersion
+
+			configMap := &corev1.ConfigMap{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, configMapKey, configMap)
+			}).Should(Succeed())
+
+			By("changing the kubeconfig")
+			configMap.Data[constants.DataKeyKubeconfig] = "foo-kubeconfig"
+			Expect(k8sClient.Update(ctx, configMap)).To(Succeed())
+
+			By("verifying that kubeconfig is restored")
+			Eventually(func() string {
+				err := k8sClient.Get(ctx, configMapKey, configMap)
+				if err != nil {
+					return ""
+				}
+
+				kubeconfig := configMap.Data[constants.DataKeyKubeconfig]
+				return kubeconfig
+			}, timeout, interval).ShouldNot(Equal("foo-kubeconfig"))
+		})
+
+		It("should delete kubeconfig configMap", func() {
 			By("deleting shoot")
 			shoot := &gardencorev1beta1.Shoot{
 				ObjectMeta: metav1.ObjectMeta{
@@ -341,11 +401,88 @@ var _ = Describe("ShootController", func() {
 				return kErros.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 
-			By("verifying configmap is deleted")
+			By("verifying configMap is deleted")
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, configMapKey, &corev1.ConfigMap{})
 				return kErros.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
+		})
+
+		Describe("resource quota", func() {
+
+			BeforeEach(func() {
+				hardQuota = "2"
+				usedQuota = "2"
+				withResourceQuota = true
+
+				cmConfig.Controllers.Shoot.QuotaExceededRetryDelay = 50 * time.Millisecond
+				shootReconciler.injectConfig(cmConfig)
+			})
+
+			It("should create kubeconfig configMap after quota increase", func() {
+				By("verifying that the configMap is not created")
+				Consistently(func() bool {
+					configMap := &corev1.ConfigMap{}
+					err := k8sClient.Get(ctx, configMapKey, configMap)
+					return kErros.IsNotFound(err)
+				}).Should(BeTrue())
+
+				By("increasing resource quota")
+				resourceQuotaCopy := resourceQuota.DeepCopy()
+				resourceQuota.Spec.Hard = corev1.ResourceList{
+					"count/configmaps": resource.MustParse("3"),
+				}
+				Expect(k8sClient.Patch(ctx, resourceQuota, client.MergeFrom(resourceQuotaCopy))).To(Succeed())
+				resourceQuotaCopy = resourceQuota.DeepCopy()
+				resourceQuota.Status.Hard = corev1.ResourceList{
+					"count/configmaps": resource.MustParse("3"),
+				}
+				Expect(k8sClient.Status().Patch(ctx, resourceQuota, client.MergeFrom(resourceQuotaCopy))).To(Succeed())
+
+				By("validating that a configMap containing a kubeconfig data key is created")
+				Eventually(func() bool {
+					configMap := &corev1.ConfigMap{}
+					if err := k8sClient.Get(ctx, configMapKey, configMap); err != nil {
+						return false
+					}
+
+					kubeconfig := configMap.Data[constants.DataKeyKubeconfig]
+					return kubeconfig != ""
+				}).Should(BeTrue())
+			})
+
+			It("should create kubeconfig configMap after usage freed", func() {
+				By("verifying that the configMap is not created")
+				isConfigMapNotFound := func() bool {
+					configMap := &corev1.ConfigMap{}
+					if err := k8sClient.Get(ctx, configMapKey, configMap); err != nil {
+						return kErros.IsNotFound(err)
+					}
+
+					return false
+				}
+				Consistently(isConfigMapNotFound).Should(BeTrue())
+
+				By("lowering configMap usage")
+				resourceQuotaCopy := resourceQuota.DeepCopy()
+				Expect(k8sClient.Patch(ctx, resourceQuota, client.MergeFrom(resourceQuotaCopy))).To(Succeed())
+				resourceQuotaCopy = resourceQuota.DeepCopy()
+				resourceQuota.Status.Used = corev1.ResourceList{
+					"count/configmaps": resource.MustParse("1"),
+				}
+				Expect(k8sClient.Status().Patch(ctx, resourceQuota, client.MergeFrom(resourceQuotaCopy))).To(Succeed())
+
+				By("validating that a configMap containing a kubeconfig data key is created")
+				Eventually(func() bool {
+					configMap := &corev1.ConfigMap{}
+					if err := k8sClient.Get(ctx, configMapKey, configMap); err != nil {
+						return false
+					}
+
+					kubeconfig := configMap.Data[constants.DataKeyKubeconfig]
+					return kubeconfig != ""
+				}).Should(BeTrue())
+			})
 		})
 
 		Context("legacy kubeconfig", func() {
@@ -354,7 +491,7 @@ var _ = Describe("ShootController", func() {
 				shoot.Spec.Kubernetes.Version = k8sVersionLegacy
 			})
 
-			It("should create legacy kubeconfig configmap", func() {
+			It("should create legacy kubeconfig configMap", func() {
 				var kubeconfig string
 				Eventually(func() bool {
 					configMap := &corev1.ConfigMap{}

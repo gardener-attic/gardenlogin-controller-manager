@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"time"
 
@@ -81,7 +80,7 @@ func New(validator admission.Handler) Environment {
 					{
 						Name:           "test-validating-create-update-gardenlogin.gardener.cloud",
 						FailurePolicy:  &failPolicy,
-						TimeoutSeconds: pointer.Int32Ptr(2),
+						TimeoutSeconds: pointer.Int32Ptr(10),
 						ClientConfig: admissionregistrationv1.WebhookClientConfig{
 							Service: &admissionregistrationv1.ServiceReference{
 								Path: &configMapValidatingWebhookPath,
@@ -99,22 +98,18 @@ func New(validator admission.Handler) Environment {
 		},
 	}
 
-	var apiServerURL *url.URL
-
-	apiServer := os.Getenv("ENVTEST_APISERVER_URL")
-	if apiServer != "" {
-		var err error
-		apiServerURL, err = url.Parse(apiServer)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	}
-
 	ginkgo.By("bootstrapping test environment")
 
 	gardenTestEnv = &gardenenvtest.GardenerTestEnvironment{
 		Environment: &envtest.Environment{
 			ControlPlane: envtest.ControlPlane{
 				APIServer: &envtest.APIServer{
-					URL: apiServerURL,
+					SecureServing: envtest.SecureServing{
+						ListenAddr: envtest.ListenAddr{
+							Address: os.Getenv("ENVTEST_APISERVER_ADDRESS"),
+							Port:    os.Getenv("ENVTEST_APISERVER_PORT"),
+						},
+					},
 				},
 			},
 			WebhookInstallOptions: webhookInstallOptions,
@@ -187,6 +182,7 @@ func DefaultConfiguration() *util.ControllerManagerConfiguration {
 			Shoot: util.ShootControllerConfiguration{
 				MaxConcurrentReconciles:             50,
 				MaxConcurrentReconcilesPerNamespace: 3,
+				QuotaExceededRetryDelay:             1 * time.Second,
 			},
 		},
 		Webhooks: util.ControllerManagerWebhookConfiguration{
