@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -82,13 +83,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctx := context.Background()
 	if err = (&controllers.ShootReconciler{
 		Client:                      mgr.GetClient(),
 		Log:                         ctrl.Log.WithName("controllers").WithName("Shoot"),
 		Scheme:                      mgr.GetScheme(),
 		Config:                      cmConfig,
 		ReconcilerCountPerNamespace: map[string]int{},
-	}).SetupWithManager(mgr, cmConfig.Controllers.Shoot); err != nil {
+	}).SetupWithManager(ctx, mgr, cmConfig.Controllers.Shoot); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Shoot")
 		os.Exit(1)
 	}

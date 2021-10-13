@@ -4,14 +4,13 @@ SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener con
 SPDX-License-Identifier: Apache-2.0
 */
 
-package controllers_test
+package controllers
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/gardener/gardenlogin-controller-manager/controllers"
 	"github.com/gardener/gardenlogin-controller-manager/internal/test"
 	"github.com/gardener/gardenlogin-controller-manager/internal/util"
 	"github.com/gardener/gardenlogin-controller-manager/webhooks"
@@ -41,10 +40,11 @@ var (
 	k8sManager      ctrl.Manager
 	cmConfig        *util.ControllerManagerConfiguration
 	validator       *webhooks.ConfigmapValidator
-	shootReconciler *controllers.ShootReconciler
+	shootReconciler *ShootReconciler
 )
 
-func TestAPIs(t *testing.T) {
+// TODO rename file to controllers_suite_test.go
+func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	SetDefaultEventuallyTimeout(30 * time.Second)
@@ -68,14 +68,14 @@ var _ = BeforeSuite(func() {
 	k8sManager = environment.K8sManager
 	k8sClient = environment.K8sClient
 
-	shootReconciler = &controllers.ShootReconciler{
+	shootReconciler = &ShootReconciler{
 		Client:                      k8sManager.GetClient(),
 		Log:                         ctrl.Log.WithName("controllers").WithName("Shoot"),
 		Scheme:                      k8sManager.GetScheme(),
 		Config:                      cmConfig,
 		ReconcilerCountPerNamespace: map[string]int{},
 	}
-	err := shootReconciler.SetupWithManager(k8sManager, cmConfig.Controllers.Shoot)
+	err := shootReconciler.SetupWithManager(ctx, k8sManager, cmConfig.Controllers.Shoot)
 	Expect(err).ToNot(HaveOccurred())
 
 	environment.Start()

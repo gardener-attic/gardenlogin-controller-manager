@@ -12,7 +12,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	kErros "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -97,7 +97,7 @@ func (o *operation) deleteApplicationResources(ctx context.Context) error {
 
 func ensureDeleted(ctx context.Context, c client.Client, objectKey client.ObjectKey, obj client.Object) error {
 	if err := c.Get(ctx, objectKey, obj); err != nil {
-		if kErros.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil // already deleted
 		}
 

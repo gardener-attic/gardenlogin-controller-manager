@@ -51,7 +51,7 @@ func (h *ConfigmapValidator) validatingKubeconfigConfigMapFn(ctx context.Context
 
 	userInfo := admissionReq.UserInfo
 
-	// Validate that user has the permission to "manage" configmaps.
+	// Validate that user has the permission to "manage" configMaps.
 	// Usually we only want to have the gardenlogin-controller-manager to have this permission and no one else, so that no one fiddles around with the kubeconfigs
 	if allowed, err := h.canManageConfigmapsAccessReview(ctx, userInfo, c.Namespace, c.Name); err != nil {
 		return false, err.Error(), nil

@@ -22,7 +22,7 @@ import (
 	secretsutil "github.com/gardener/gardener/pkg/utils/secrets"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	kErros "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -157,7 +157,7 @@ func (o *operation) loadOrGenerateTLSCertificate(ctx context.Context) (*secretsu
 
 	secret := &corev1.Secret{}
 	if err := rtClient.Get(ctx, client.ObjectKey{Namespace: o.imports.Namespace, Name: o.imports.NamePrefix + TLSSecretSuffix}, secret); err != nil {
-		if !kErros.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 
@@ -224,7 +224,7 @@ func (o *operation) createOrUpdateTLSSecret(ctx context.Context, cert *secretsut
 
 	secret := &corev1.Secret{}
 	if err := rtClient.Get(ctx, objKey, secret); err != nil {
-		if !kErros.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			return err
 		}
 
