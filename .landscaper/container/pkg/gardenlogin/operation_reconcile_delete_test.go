@@ -7,8 +7,6 @@ package gardenlogin_test
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -20,7 +18,6 @@ import (
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/gardenlogin"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
 
-	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -28,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kind/pkg/fs"
 )
@@ -89,16 +87,11 @@ var _ = Describe("Operation Reconcile", func() {
 
 	Describe("#Single-Cluster reconcile", func() {
 		BeforeEach(func() {
+			singleClusterTarget, err := test.NewKubernetesClusterTarget(pointer.StringPtr(string(kubeconfig)), nil)
+			Expect(err).ToNot(HaveOccurred())
+
 			imports.MultiClusterDeploymentScenario = false
-			imports.SingleClusterTarget = lsv1alpha1.Target{
-				Spec: lsv1alpha1.TargetSpec{
-					Configuration: lsv1alpha1.AnyJSON{
-						RawMessage: json.RawMessage(fmt.Sprintf(
-							`{"kubeconfig":"%s"}`,
-							base64.StdEncoding.EncodeToString(kubeconfig))),
-					},
-				},
-			}
+			imports.SingleClusterTarget = *singleClusterTarget
 		})
 
 		It("should create and delete gardenlogin-controller-manager resources", func() {

@@ -6,6 +6,8 @@
 package validation
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
@@ -48,8 +50,28 @@ func ValidateImports(obj *api.Imports) field.ErrorList {
 func validateTarget(obj lsv1alpha1.Target, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
+	if len(obj.Spec.Type) == 0 {
+		allErrs = append(allErrs, field.Required(fldPath.Child("spec", "type"), "target type must be set"))
+	} else if obj.Spec.Type != lsv1alpha1.KubernetesClusterTargetType {
+		allErrs = append(allErrs, field.Forbidden(fldPath.Child("spec", "type"), fmt.Sprintf("a target type other than %q is not supported", lsv1alpha1.KubernetesClusterTargetType)))
+	}
+
 	if len(obj.Spec.Configuration.RawMessage) == 0 {
-		allErrs = append(allErrs, field.Required(fldPath, "kubeconfig is required"))
+		allErrs = append(allErrs, field.Required(fldPath.Child("spec", "configuration"), "a configuration is required"))
+		return allErrs
+	}
+
+	targetConfig := &lsv1alpha1.KubernetesClusterTargetConfig{}
+	if err := json.Unmarshal(obj.Spec.Configuration.RawMessage, targetConfig); err != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("spec", "configuration"), nil, fmt.Sprintf("unable to parse target confíguration: %s", err.Error())))
+	} else {
+		if fieldErr := validateRequiredField(targetConfig.Kubeconfig.StrVal, fldPath.Child("spec", "configuration", "kubeconfig")); fieldErr != nil {
+			allErrs = append(allErrs, fieldErr)
+		}
+
+		if targetConfig.Kubeconfig.SecretRef != nil {
+			allErrs = append(allErrs, field.Forbidden(fldPath.Child("spec", "configuration", "kubeconfig", "secretRef"), "must not be set"))
+		}
 	}
 
 	return allErrs
@@ -60,7 +82,7 @@ func validateTargetNotSet(obj lsv1alpha1.Target, fldPath *field.Path) field.Erro
 	allErrs := field.ErrorList{}
 
 	if len(obj.Spec.Configuration.RawMessage) != 0 {
-		allErrs = append(allErrs, field.Forbidden(fldPath, "target (kubeconfig) must not be set"))
+		allErrs = append(allErrs, field.Forbidden(fldPath.Child("spec", "configuration"), "target (kubeconfig) must not be set"))
 	}
 
 	return allErrs

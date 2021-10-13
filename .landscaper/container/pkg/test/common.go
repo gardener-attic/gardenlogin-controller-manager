@@ -7,9 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package test
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/rand"
 	"time"
 
+	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
 	"k8s.io/client-go/rest"
 	clientcmdv1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	"sigs.k8s.io/yaml"
@@ -74,4 +77,23 @@ func KubeconfigFromRestConfig(restConfig *rest.Config) ([]byte, error) {
 	}
 
 	return yaml.Marshal(cfg)
+}
+
+func NewKubernetesClusterTarget(kubeconfig *string, secretRef *lsv1alpha1.SecretReference) (*lsv1alpha1.Target, error) {
+	configBytes, err := json.Marshal(lsv1alpha1.KubernetesClusterTargetConfig{
+		Kubeconfig: lsv1alpha1.ValueRef{
+			StrVal:    kubeconfig,
+			SecretRef: secretRef,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode target config: %w", err)
+	}
+
+	return &lsv1alpha1.Target{
+		Spec: lsv1alpha1.TargetSpec{
+			Type:          lsv1alpha1.KubernetesClusterTargetType,
+			Configuration: lsv1alpha1.NewAnyJSON(configBytes),
+		},
+	}, nil
 }
