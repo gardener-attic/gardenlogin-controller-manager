@@ -27,7 +27,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	kErros "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,7 +83,7 @@ func (r *ShootReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}, nil
 	}
 
-	res, err := r.handleRequest(ctx, req, log)
+	res, err := r.handleRequest(ctx, req)
 
 	r.decreaseCounterForNamespace(req.Namespace)
 
@@ -377,7 +377,9 @@ func (r *ShootReconciler) resourceQuotaPredicate() predicate.Funcs {
 	}
 }
 
-func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request, log logr.Logger) (ctrl.Result, error) {
+func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := r.Log.WithValues("shoot", req.NamespacedName)
+
 	name := fmt.Sprintf("%s%s", req.Name, KubeconfigConfigMapNameSuffix)
 	kubeconfigConfigMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: req.Namespace}}
 
@@ -385,7 +387,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request, l
 	shoot := &gardencorev1beta1.Shoot{}
 
 	if err := r.Client.Get(ctx, req.NamespacedName, shoot); err != nil {
-		if kErros.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			// shoot does not exist anymore - cleanup kubeconfig configMap
 			return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
 		}
@@ -396,7 +398,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request, l
 	// We confirmed that the shoot still exists.
 	// Now we verify that we have sufficient quota in case the kubeconfig configMap does not exist yet
 	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(kubeconfigConfigMap), kubeconfigConfigMap); err != nil {
-		if kErros.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			if sufficient, err := r.hasSufficientQuota(ctx, req, "count/configmaps"); err != nil {
 				return ctrl.Result{}, err
 			} else if !sufficient {
@@ -412,7 +414,7 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request, l
 	shootState := &gardencorev1alpha1.ShootState{}
 
 	if err := r.Get(ctx, req.NamespacedName, shootState); err != nil {
-		if kErros.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			// shootstate does not exist anymore - cleanup kubeconfig configMap
 			return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
 		}

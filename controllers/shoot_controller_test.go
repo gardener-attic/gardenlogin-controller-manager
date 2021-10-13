@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	kErros "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -398,13 +398,13 @@ var _ = Describe("ShootController", func() {
 			By("ensuring shoot is deleted")
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &gardencorev1beta1.Shoot{})
-				return kErros.IsNotFound(err)
+				return apierrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 
 			By("verifying configMap is deleted")
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, configMapKey, &corev1.ConfigMap{})
-				return kErros.IsNotFound(err)
+				return apierrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 		})
 
@@ -424,7 +424,7 @@ var _ = Describe("ShootController", func() {
 				Consistently(func() bool {
 					configMap := &corev1.ConfigMap{}
 					err := k8sClient.Get(ctx, configMapKey, configMap)
-					return kErros.IsNotFound(err)
+					return apierrors.IsNotFound(err)
 				}).Should(BeTrue())
 
 				By("increasing resource quota")
@@ -456,7 +456,7 @@ var _ = Describe("ShootController", func() {
 				isConfigMapNotFound := func() bool {
 					configMap := &corev1.ConfigMap{}
 					if err := k8sClient.Get(ctx, configMapKey, configMap); err != nil {
-						return kErros.IsNotFound(err)
+						return apierrors.IsNotFound(err)
 					}
 
 					return false
