@@ -67,6 +67,7 @@ type ShootReconciler struct {
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete;manage;
 //+kubebuilder:rbac:groups="",resources=configmaps/finalizers,verbs=update;
 //+kubebuilder:rbac:groups="",resources=resourcequotas,verbs=get;list;watch;
+//+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 //+kubebuilder:rbac:groups="core.gardener.cloud",resources=shootstates,verbs=get;list;watch;
 //+kubebuilder:rbac:groups="core.gardener.cloud",resources=shoots,verbs=get;list;watch;
 
