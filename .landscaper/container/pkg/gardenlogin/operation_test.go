@@ -6,8 +6,6 @@
 package gardenlogin
 
 import (
-	"io/ioutil"
-
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/fake"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
@@ -78,9 +76,6 @@ var _ = Describe("Operation", func() {
 			Expect(op.multiCluster.applicationCluster.client).To(Equal(applicationClient))
 			Expect(op.multiCluster.runtimeCluster.client).To(Equal(runtimeClient))
 
-			Expect(ioutil.ReadFile(op.multiCluster.runtimeCluster.kubeconfig)).To(Equal([]byte(runtimeKubeconfig)))
-			Expect(ioutil.ReadFile(op.multiCluster.applicationCluster.kubeconfig)).To(Equal([]byte(applicationKubeconfig)))
-
 			Expect(op.singleCluster).To(BeNil())
 			Expect(op.log).To(Equal(log))
 			Expect(op.clock).To(Equal(f.Clock()))
@@ -114,7 +109,6 @@ var _ = Describe("Operation", func() {
 			Expect(op.singleCluster.client).To(Equal(client))
 			Expect(op.singleCluster.kubernetes).To(Equal(kubeClient))
 
-			Expect(ioutil.ReadFile(op.singleCluster.kubeconfig)).To(Equal([]byte(kubeconfig)))
 			Expect(op.log).To(Equal(log))
 			Expect(op.clock).To(Equal(f.Clock()))
 			Expect(op.imports).To(Equal(imports))

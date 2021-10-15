@@ -6,11 +6,9 @@
 package gardenlogin
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os/exec"
 	"regexp"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
 
+	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/utils"
 	secretsutil "github.com/gardener/gardener/pkg/utils/secrets"
 	corev1 "k8s.io/api/core/v1"
@@ -63,11 +62,11 @@ func (o *operation) Reconcile(ctx context.Context) error {
 
 	if !o.imports.MultiClusterDeploymentScenario {
 		// single cluster deployment
-		if err := buildAndApplyOverlay(o.contents.SingleClusterPath, o.singleCluster.kubeconfig); err != nil {
+		if err := buildAndApplyOverlay(ctx, o.contents.SingleClusterPath, o.singleCluster); err != nil {
 			return fmt.Errorf("failed to apply overlay for single cluster deployment: %w", err)
 		}
 	} else {
-		if err := buildAndApplyOverlay(o.contents.VirtualGardenOverlayPath, o.multiCluster.applicationCluster.kubeconfig); err != nil {
+		if err := buildAndApplyOverlay(ctx, o.contents.VirtualGardenOverlayPath, o.multiCluster.applicationCluster); err != nil {
 			return fmt.Errorf("failed to applyoverlay for application cluster: %w", err)
 		}
 
@@ -75,7 +74,7 @@ func (o *operation) Reconcile(ctx context.Context) error {
 			return err
 		}
 
-		if err := buildAndApplyOverlay(o.contents.RuntimeOverlayPath, o.multiCluster.runtimeCluster.kubeconfig); err != nil {
+		if err := buildAndApplyOverlay(ctx, o.contents.RuntimeOverlayPath, o.multiCluster.runtimeCluster); err != nil {
 			return fmt.Errorf("failed to apply overlay for runtime cluster: %w", err)
 		}
 	}
@@ -83,70 +82,17 @@ func (o *operation) Reconcile(ctx context.Context) error {
 	return o.createOrUpdateTLSSecret(ctx, cert)
 }
 
-// buildAndApplyOverlay builds the given overlay using kustomize and applies the result using kubectl depending on the given deleteOverlay parameter
-func buildAndApplyOverlay(overlayPath string, kubeconfigPath string) error {
-	kustomizeCmd := exec.Command("kustomize", "build", overlayPath)
-
-	kustomizeStdOut, err := kustomizeCmd.StdoutPipe()
+// buildAndApplyOverlay builds the given overlay using kustomize and applies the manifests to the given cluster
+func buildAndApplyOverlay(ctx context.Context, overlayPath string, cluster *cluster) error {
+	out, err := exec.Command("kustomize", "build", overlayPath).Output()
 	if err != nil {
-		return fmt.Errorf("failed to get stdout pipe of kustomize command: %w", err)
+		return fmt.Errorf("failed to run kustomization: %w", err)
 	}
 
-	kustomizeStdErr, err := kustomizeCmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stdout pipe of kustomize command: %w", err)
-	}
+	applier := kubernetes.NewApplier(cluster.client, cluster.client.RESTMapper())
+	mr := kubernetes.NewManifestReader(out)
 
-	kubectlCmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "apply", "-f", "-")
-
-	capturedKustomizeStdOut := &bytes.Buffer{}
-
-	// pipe stdout of kustomize to stdin of kubectl and also capture what is read from the pipe
-	kubectlCmd.Stdin = io.TeeReader(kustomizeStdOut, capturedKustomizeStdOut)
-
-	outRc, err := kubectlCmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	errRc, err := kubectlCmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	if err := kubectlCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start applying kustomize build result using kubectl: %w", err)
-	}
-
-	if err := kustomizeCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start kustomzie build for overlay %s: %w", overlayPath, err)
-	}
-
-	stdErr, err := ioutil.ReadAll(kustomizeStdErr)
-	if err != nil {
-		return fmt.Errorf("failed to read stderr of kustomize command: %w", err)
-	}
-
-	if err := kustomizeCmd.Wait(); err != nil {
-		stdOut := capturedKustomizeStdOut.String()
-		return fmt.Errorf("failed to wait for kustomzie build to exit for overlay %s\nStdout: %s: StdErr: %s:  %w", overlayPath, stdOut, stdErr, err)
-	}
-
-	stdOut, err := ioutil.ReadAll(outRc)
-	if err != nil {
-		return fmt.Errorf("failed to read stdout of kubectl command")
-	}
-
-	stdErr, err = ioutil.ReadAll(errRc)
-	if err != nil {
-		return fmt.Errorf("failed to read stderr of kubectl command")
-	}
-
-	if err := kubectlCmd.Wait(); err != nil {
-		return fmt.Errorf("failed to  wait for the kubectl command to exit for overlay %s:\nStdout: %s: StdErr: %s:  %w", overlayPath, stdOut, stdErr, err)
-	}
-
-	return nil
+	return applier.ApplyManifest(ctx, mr, kubernetes.DefaultMergeFuncs)
 }
 
 // loadOrGenerateTLSCertificate loads or generates the gardenlogin tls certificate.

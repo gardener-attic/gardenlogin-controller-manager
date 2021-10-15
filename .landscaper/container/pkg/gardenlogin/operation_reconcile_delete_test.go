@@ -80,7 +80,7 @@ var _ = Describe("Operation Reconcile", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 
 		Expect(op.Delete(ctx)).To(Succeed())
 	})
