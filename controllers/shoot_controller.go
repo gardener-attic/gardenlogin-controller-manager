@@ -380,6 +380,7 @@ func (r *ShootReconciler) resourceQuotaPredicate() predicate.Funcs {
 
 func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("shoot", req.NamespacedName)
+	log.Info("reconciling")
 
 	name := fmt.Sprintf("%s%s", req.Name, KubeconfigConfigMapNameSuffix)
 	kubeconfigConfigMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: req.Namespace}}
@@ -522,6 +523,8 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 	}); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create or update kubeconfig configMap %s/%s: %w", kubeconfigConfigMap.Namespace, kubeconfigConfigMap.Name, err)
 	}
+
+	log.Info("reconciled successfully")
 
 	return ctrl.Result{}, nil
 }
