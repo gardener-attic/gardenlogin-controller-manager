@@ -196,13 +196,13 @@ func (o *operation) loadOrGenerateTLSCertificate(ctx context.Context) (*secretsu
 	certConfig := &secretsutil.CertificateSecretConfig{
 		CertType:   secretsutil.ServerClientCert,
 		SigningCA:  caCert,
-		CommonName: fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", o.imports.NamePrefix, o.imports.Namespace),
+		CommonName: fmt.Sprintf("%swebhook-service.%s.svc.cluster.local", o.imports.NamePrefix, o.imports.Namespace),
 		DNSNames: []string{
-			fmt.Sprintf("%s-webhook-service", o.imports.NamePrefix),
-			fmt.Sprintf("%s-webhook-service.%s", o.imports.NamePrefix, o.imports.Namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc", o.imports.NamePrefix, o.imports.Namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc.cluster", o.imports.NamePrefix, o.imports.Namespace),
-			fmt.Sprintf("%s-webhook-service.%s.svc.cluster.local", o.imports.NamePrefix, o.imports.Namespace),
+			fmt.Sprintf("%swebhook-service", o.imports.NamePrefix),
+			fmt.Sprintf("%swebhook-service.%s", o.imports.NamePrefix, o.imports.Namespace),
+			fmt.Sprintf("%swebhook-service.%s.svc", o.imports.NamePrefix, o.imports.Namespace),
+			fmt.Sprintf("%swebhook-service.%s.svc.cluster", o.imports.NamePrefix, o.imports.Namespace),
+			fmt.Sprintf("%swebhook-service.%s.svc.cluster.local", o.imports.NamePrefix, o.imports.Namespace),
 		},
 		Now: o.clock.Now,
 	}
