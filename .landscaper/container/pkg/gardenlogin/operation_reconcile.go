@@ -6,12 +6,16 @@
 package gardenlogin
 
 import (
+	"bytes"
 	"context"
+	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os/exec"
 	"regexp"
+	"text/template"
 	"time"
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
@@ -32,6 +36,33 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
+
+var (
+	//go:embed templates/deployment_resources_patch.tpl.yaml
+	tplResourcesPatch string
+	tplResources      *template.Template
+)
+
+func init() {
+	var err error
+	tplResources, err = template.
+		New("resources").
+		Funcs(map[string]interface{}{
+			"mustToJson": mustToJson,
+		}).
+		Parse(tplResourcesPatch)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func mustToJson(v interface{}) (string, error) {
+	output, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
+}
 
 // Reconcile runs the reconcile operation.
 func (o *operation) Reconcile(ctx context.Context) error {
@@ -57,6 +88,13 @@ func (o *operation) Reconcile(ctx context.Context) error {
 		o.contents.RuntimeOverlayPath,
 		o.contents.SingleClusterPath,
 	}, o.imports.NamePrefix); err != nil {
+		return err
+	}
+
+	if err := o.patchResourceRequirements([]string{
+		o.contents.RuntimeOverlayPath,
+		o.contents.SingleClusterPath,
+	}); err != nil {
 		return err
 	}
 
@@ -235,11 +273,11 @@ func (o *operation) setImages() error {
 		return fmt.Errorf("failed to set controller image %s, Output %s: %w", o.imageRefs.GardenloginImage, out, err)
 	}
 
-	cmd = exec.Command("kustomize", "edit", "set", "image", fmt.Sprintf("gcr.io/kubebuilder/kube-rbac-proxy=%s", o.imageRefs.KubeRbacProxyImage))
+	cmd = exec.Command("kustomize", "edit", "set", "image", fmt.Sprintf("gcr.io/kubebuilder/kube-rbac-proxy=%s", o.imageRefs.KubeRBACProxyImage))
 	cmd.Dir = o.contents.ManagerPath
 
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to set kube-rbac-proxy image %s, Output %s: %w", o.imageRefs.KubeRbacProxyImage, out, err)
+		return fmt.Errorf("failed to set kube-rbac-proxy image %s, Output %s: %w", o.imageRefs.KubeRBACProxyImage, out, err)
 	}
 
 	return nil
@@ -267,6 +305,28 @@ func setNamePrefix(overlayPaths []string, namePrefix string) error {
 
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to set nameprefix %s for overlay path %s, Output: %s: %w", namePrefix, overlayPath, out, err)
+		}
+	}
+
+	return nil
+}
+
+// patchResourceRequirements uses kustomize cli to patch the resource requirements for the manager and kube-rbac-proxy container according to the import parameters
+func (o *operation) patchResourceRequirements(overlayPaths []string) error {
+	patch := bytes.NewBuffer(nil)
+	if err := tplResources.Execute(patch, map[string]interface{}{
+		"managerResources":       o.imports.Gardenlogin.ManagerResources,
+		"kubeRbacProxyResources": o.imports.Gardenlogin.KubeRBACProxyResources,
+	}); err != nil {
+		return err
+	}
+
+	for _, overlayPath := range overlayPaths {
+		cmd := exec.Command("kustomize", "edit", "add", "patch", "--patch", patch.String())
+		cmd.Dir = overlayPath
+
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to patch resource requirements for overlay path %s, Output: %s: %w", overlayPath, out, err)
 		}
 	}
 

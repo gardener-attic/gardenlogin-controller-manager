@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        resources: {{ mustToJson .managerResources }}
+      - name: kube-rbac-proxy
+        resources: {{ mustToJson .kubeRbacProxyResources }}
