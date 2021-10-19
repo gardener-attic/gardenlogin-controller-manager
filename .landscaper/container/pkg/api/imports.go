@@ -7,7 +7,7 @@ package api
 
 import (
 	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Imports defines the structure for the required configuration values from other components.
@@ -39,15 +39,9 @@ type Imports struct {
 	// It must not start with garden- to prevent name clashes with project namespaces and it must not be the garden namespace.
 	Namespace string `json:"namespace" yaml:"namespace"`
 
-	// Gardenlogin contains configuration for the gardenlogin-controller-manager.
-	Gardenlogin Gardenlogin `json:"gardenlogin" yaml:"gardenlogin"`
-}
-
-// Gardenlogin contains configuration for the gardenlogin-controller-manager.
-type Gardenlogin struct {
 	// ManagerResources define the resource requirements by the "manager" container.
-	ManagerResources v1.ResourceRequirements `json:"managerResources" yaml:"managerResources"`
+	ManagerResources corev1.ResourceRequirements `json:"managerResources" yaml:"managerResources"`
 
 	// KubeRBACProxyResources define the resource requirements by the "kube-rbac-proxy" container.
-	KubeRBACProxyResources v1.ResourceRequirements `json:"kubeRbacProxyResources" yaml:"kubeRbacProxyResources"`
+	KubeRBACProxyResources corev1.ResourceRequirements `json:"kubeRbacProxyResources" yaml:"kubeRbacProxyResources"`
 }

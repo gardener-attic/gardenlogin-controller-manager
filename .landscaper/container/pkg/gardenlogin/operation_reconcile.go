@@ -8,7 +8,7 @@ package gardenlogin
 import (
 	"bytes"
 	"context"
-	_ "embed"
+	_ "embed" // The //go:embed directive requires importing "embed", hence using a blank import
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,23 +44,21 @@ var (
 )
 
 func init() {
-	var err error
-	tplResources, err = template.
-		New("resources").
-		Funcs(map[string]interface{}{
-			"mustToJson": mustToJson,
-		}).
-		Parse(tplResourcesPatch)
-	if err != nil {
-		panic(err)
-	}
+	tplResources = template.Must(
+		template.
+			New("resources").
+			Funcs(map[string]interface{}{
+				"mustToJson": mustToJSON,
+			}).
+			Parse(tplResourcesPatch))
 }
 
-func mustToJson(v interface{}) (string, error) {
+func mustToJSON(v interface{}) (string, error) {
 	output, err := json.Marshal(v)
 	if err != nil {
 		return "", err
 	}
+
 	return string(output), nil
 }
 
@@ -315,8 +313,8 @@ func setNamePrefix(overlayPaths []string, namePrefix string) error {
 func (o *operation) patchResourceRequirements(overlayPaths []string) error {
 	patch := bytes.NewBuffer(nil)
 	if err := tplResources.Execute(patch, map[string]interface{}{
-		"managerResources":       o.imports.Gardenlogin.ManagerResources,
-		"kubeRbacProxyResources": o.imports.Gardenlogin.KubeRBACProxyResources,
+		"managerResources":       o.imports.ManagerResources,
+		"kubeRbacProxyResources": o.imports.KubeRBACProxyResources,
 	}); err != nil {
 		return err
 	}

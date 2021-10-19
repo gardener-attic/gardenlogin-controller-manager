@@ -34,6 +34,33 @@ imports:
     schema:
       type: string
 
+  - name: managerResources
+    type: data
+    required: false
+    schema:
+      $ref: "local://resourceRequirements"
+
+  - name: kubeRbacProxyResources
+    type: data
+    required: false
+    schema:
+      $ref: "local://resourceRequirements"
+
+localTypes:
+  resourceRequirements:
+    type: object
+    properties:
+      limits:
+        "$ref": "local://resourceList"
+      requests:
+        "$ref": "local://resourceList"
+  resourceList:
+    type: object
+    properties:
+      cpu:
+        type: string
+      memory:
+        type: string
 
 exports: []
 

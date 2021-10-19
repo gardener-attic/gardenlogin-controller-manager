@@ -59,7 +59,7 @@ build: fmt lint ## Build container-deployer binary.
 run: generate fmt lint ## Run a controller from your host.
 	go run ./main.go
 
-docker-build:  ## Build docker image with the container-deployer.
+docker-build: test ## Build docker image with the container-deployer.
 	docker build -t $(IMG):$(EFFECTIVE_VERSION) .
 
 docker-push: ## Push docker image with the container-deployer.

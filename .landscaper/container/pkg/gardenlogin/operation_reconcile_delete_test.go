@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"path"
 
@@ -27,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kind/pkg/fs"
@@ -236,8 +236,8 @@ var _ = Describe("Operation Reconcile", func() {
 				},
 			}
 
-			imports.Gardenlogin.ManagerResources = patchedManagerResources
-			imports.Gardenlogin.KubeRBACProxyResources = patchedRbacProxyResources
+			imports.ManagerResources = patchedManagerResources
+			imports.KubeRBACProxyResources = patchedRbacProxyResources
 
 			op, err = gardenlogin.NewOperation(f, log, imports, imageRefs, contents)
 			Expect(err).NotTo(HaveOccurred())
