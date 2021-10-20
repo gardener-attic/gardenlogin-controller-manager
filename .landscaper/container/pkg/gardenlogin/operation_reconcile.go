@@ -62,11 +62,11 @@ func (o *operation) Reconcile(ctx context.Context) error {
 
 	if !o.imports.MultiClusterDeploymentScenario {
 		// single cluster deployment
-		if err := buildAndApplyOverlay(ctx, o.contents.SingleClusterPath, o.singleCluster); err != nil {
+		if err := o.singleCluster.buildAndApplyOverlay(ctx, o.contents.SingleClusterPath); err != nil {
 			return fmt.Errorf("failed to apply overlay for single cluster deployment: %w", err)
 		}
 	} else {
-		if err := buildAndApplyOverlay(ctx, o.contents.VirtualGardenOverlayPath, o.multiCluster.applicationCluster); err != nil {
+		if err := o.multiCluster.applicationCluster.buildAndApplyOverlay(ctx, o.contents.VirtualGardenOverlayPath); err != nil {
 			return fmt.Errorf("failed to applyoverlay for application cluster: %w", err)
 		}
 
@@ -74,7 +74,7 @@ func (o *operation) Reconcile(ctx context.Context) error {
 			return err
 		}
 
-		if err := buildAndApplyOverlay(ctx, o.contents.RuntimeOverlayPath, o.multiCluster.runtimeCluster); err != nil {
+		if err := o.multiCluster.runtimeCluster.buildAndApplyOverlay(ctx, o.contents.RuntimeOverlayPath); err != nil {
 			return fmt.Errorf("failed to apply overlay for runtime cluster: %w", err)
 		}
 	}
@@ -83,7 +83,7 @@ func (o *operation) Reconcile(ctx context.Context) error {
 }
 
 // buildAndApplyOverlay builds the given overlay using kustomize and applies the manifests to the given cluster
-func buildAndApplyOverlay(ctx context.Context, overlayPath string, cluster *cluster) error {
+func (cluster *cluster) buildAndApplyOverlay(ctx context.Context, overlayPath string) error {
 	out, err := exec.Command("kustomize", "build", overlayPath).Output()
 	if err != nil {
 		return fmt.Errorf("failed to run kustomization: %w", err)
