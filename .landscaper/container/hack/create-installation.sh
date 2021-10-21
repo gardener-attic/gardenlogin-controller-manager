@@ -104,7 +104,7 @@ data:
       memory: 20Mi
 
 binaryData:
-  multiClusterDeploymentScenario: ${multiClusterData}
+  multiClusterDeploymentScenario: "${multiClusterData}"
 
 EOF
 
