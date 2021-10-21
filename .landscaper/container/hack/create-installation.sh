@@ -14,6 +14,12 @@ CONFIGMAP_PATH="${TMP_DIR}/configmap.yaml"
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-eu.gcr.io/gardener-project/development/images}"
 CD_REGISTRY="${CD_REGISTRY:-eu.gcr.io/gardener-project/development}"
 
+if [[ -z "${APPLICATION_CLUSTER_ENDPOINT}" ]]; then
+  echo -n "APPLICATION_CLUSTER_ENDPOINT env variable needs to be set"
+  exit 1
+fi
+
+
 cat << EOF > ${INSTALLATION_PATH}
 apiVersion: landscaper.gardener.cloud/v1alpha1
 kind: Installation
@@ -55,6 +61,14 @@ spec:
       configMapRef:
         key: namespace
         name: gardenlogin-container-deployer
+    - name: managerResources
+      configMapRef:
+        key: managerResources
+        name: gardenlogin-container-deployer
+    - name: kubeRbacProxyResources
+      configMapRef:
+        key: kubeRbacProxyResources
+        name: gardenlogin-container-deployer
 
   exports: {}
 
@@ -74,8 +88,23 @@ data:
   applicationClusterEndpoint: ${endpointData}
   namePrefix: ${namePrefixData}
   namespace: ${namespaceData}
+  managerResources: |
+    limits:
+      cpu: 200m
+      memory: 300Mi
+    requests:
+      cpu: 100m
+      memory: 100Mi
+  kubeRbacProxyResources: |
+    limits:
+      cpu: 100m
+      memory: 30Mi
+    requests:
+      cpu: 100m
+      memory: 20Mi
+
 binaryData:
-  multiClusterDeploymentScenario: ${multiClusterData}
+  multiClusterDeploymentScenario: "${multiClusterData}"
 
 EOF
 

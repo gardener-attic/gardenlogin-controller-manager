@@ -16,8 +16,8 @@ import (
 type ImageRefs struct {
 	// GardenloginImage holds the image of the gardenlogin-controller-manager
 	GardenloginImage string
-	// KubeRbacProxyImage holds the image of the brancz/kube-rbac-proxy image
-	KubeRbacProxyImage string
+	// KubeRBACProxyImage holds the image of the brancz/kube-rbac-proxy image
+	KubeRBACProxyImage string
 }
 
 // NewImageRefsFromComponentDescriptor extracts the relevant images from the component descriptor.
@@ -36,7 +36,7 @@ func NewImageRefsFromComponentDescriptor(cd *cdv2.ComponentDescriptor) (*ImageRe
 		return nil, err
 	}
 
-	imageRefs.KubeRbacProxyImage, err = getImageRef(resourceNameKubeRbacProxy, cd)
+	imageRefs.KubeRBACProxyImage, err = getImageRef(resourceNameKubeRbacProxy, cd)
 	if err != nil {
 		return nil, err
 	}

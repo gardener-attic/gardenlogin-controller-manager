@@ -44,7 +44,7 @@ type ShootControllerConfiguration struct {
 	// QuotaExceededRetryDelay is the duration, after which the reconciliation will be retried again in case the configMap quota is exceeded.
 	// Note that in case the resource quota for count/configmaps is increased or configMap quota was freed a reconciliation is requested for all shoots in the namespace that do not already have a corresponding <shootname>.kubeconfig configMap.
 	// Defaults to 24 hours.
-	QuotaExceededRetryDelay time.Duration
+	QuotaExceededRetryDelay time.Duration `yaml:"quotaExceededRetryDelay"`
 }
 
 // ControllerManagerWebhookConfiguration defines the configuration of the admission webhooks.

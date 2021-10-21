@@ -36,7 +36,7 @@ var _ = Describe("Imports", func() {
 			})
 
 			AfterEach(func() {
-				os.RemoveAll(dir)
+				Expect(os.RemoveAll(dir)).To(Succeed())
 			})
 
 			It("should succeed reading but fail parsing the file", func() {

@@ -20,11 +20,13 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kind/pkg/fs"
@@ -63,7 +65,7 @@ var _ = Describe("Operation Reconcile", func() {
 
 		imageRefs = &api.ImageRefs{
 			GardenloginImage:   "eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager:latest",
-			KubeRbacProxyImage: "quay.io/brancz/kube-rbac-proxy:v0.8.0",
+			KubeRBACProxyImage: "quay.io/brancz/kube-rbac-proxy:v0.8.0",
 		}
 
 		By("copying config folder for test")
@@ -86,12 +88,38 @@ var _ = Describe("Operation Reconcile", func() {
 	})
 
 	Describe("#Single-Cluster reconcile", func() {
+		var (
+			defaultManagerResources   corev1.ResourceRequirements
+			defaultRbacProxyResources corev1.ResourceRequirements
+		)
 		BeforeEach(func() {
 			singleClusterTarget, err := test.NewKubernetesClusterTarget(pointer.StringPtr(string(kubeconfig)), nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			imports.MultiClusterDeploymentScenario = false
 			imports.SingleClusterTarget = *singleClusterTarget
+
+			defaultManagerResources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("200m"),
+					corev1.ResourceMemory: resource.MustParse("300Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("100Mi"),
+				},
+			}
+
+			defaultRbacProxyResources = corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("30Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: resource.MustParse("20Mi"),
+				},
+			}
 		})
 
 		It("should create and delete gardenlogin-controller-manager resources", func() {
@@ -101,7 +129,7 @@ var _ = Describe("Operation Reconcile", func() {
 			By("running reconcile op")
 			Expect(op.Reconcile(ctx)).NotTo(HaveOccurred())
 
-			By("verifying that resources were deleted")
+			By("verifying that resources were created")
 
 			namespaceKey := client.ObjectKey{Name: imports.Namespace}
 			namespace := &corev1.Namespace{}
@@ -110,6 +138,22 @@ var _ = Describe("Operation Reconcile", func() {
 			deploymentKey := client.ObjectKey{Namespace: imports.Namespace, Name: imports.NamePrefix + "controller-manager"}
 			deployment := &appsv1.Deployment{}
 			Expect(testClient.Get(ctx, deploymentKey, deployment)).To(Succeed())
+
+			containerIdentifier := func(element interface{}) string {
+				container, ok := element.(corev1.Container)
+				Expect(ok).To(BeTrue())
+				return container.Name
+			}
+
+			By("verifying default resource requirements")
+			Expect(deployment.Spec.Template.Spec.Containers).To(MatchAllElements(containerIdentifier, Elements{
+				"manager": MatchFields(IgnoreExtras, Fields{
+					"Resources": Equal(defaultManagerResources),
+				}),
+				"kube-rbac-proxy": MatchFields(IgnoreExtras, Fields{
+					"Resources": Equal(defaultRbacProxyResources),
+				}),
+			}))
 
 			crbKey := client.ObjectKey{Name: fmt.Sprintf("%sproxy-rolebinding", imports.NamePrefix)}
 			crb := &rbacv1.ClusterRoleBinding{}
@@ -168,6 +212,64 @@ var _ = Describe("Operation Reconcile", func() {
 
 			Expect(secretBefore.Data[corev1.TLSCertKey]).NotTo(Equal(secretAfter.Data[corev1.TLSCertKey]))
 			Expect(secretBefore.Data[corev1.TLSPrivateKeyKey]).NotTo(Equal(secretAfter.Data[corev1.TLSPrivateKeyKey]))
+		})
+
+		It("should patch resource requirements", func() {
+			patchedManagerResources := corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("250m"),
+					corev1.ResourceMemory: resource.MustParse("350Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("150m"),
+					corev1.ResourceMemory: resource.MustParse("150Mi"),
+				},
+			}
+			patchedRbacProxyResources := corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("150m"),
+					corev1.ResourceMemory: resource.MustParse("35Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("150m"),
+					corev1.ResourceMemory: resource.MustParse("25Mi"),
+				},
+			}
+
+			imports.ManagerResources = patchedManagerResources
+			imports.KubeRBACProxyResources = patchedRbacProxyResources
+
+			op, err = gardenlogin.NewOperation(f, log, imports, imageRefs, contents)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("running reconcile op")
+			Expect(op.Reconcile(ctx)).NotTo(HaveOccurred())
+
+			By("verifying that resources were created")
+
+			namespaceKey := client.ObjectKey{Name: imports.Namespace}
+			namespace := &corev1.Namespace{}
+			Expect(testClient.Get(ctx, namespaceKey, namespace)).To(Succeed())
+
+			deploymentKey := client.ObjectKey{Namespace: imports.Namespace, Name: imports.NamePrefix + "controller-manager"}
+			deployment := &appsv1.Deployment{}
+			Expect(testClient.Get(ctx, deploymentKey, deployment)).To(Succeed())
+
+			containerIdentifier := func(element interface{}) string {
+				container, ok := element.(corev1.Container)
+				Expect(ok).To(BeTrue())
+				return container.Name
+			}
+
+			By("verifying patched resource requirements")
+			Expect(deployment.Spec.Template.Spec.Containers).To(MatchAllElements(containerIdentifier, Elements{
+				"manager": MatchFields(IgnoreExtras, Fields{
+					"Resources": Equal(patchedManagerResources),
+				}),
+				"kube-rbac-proxy": MatchFields(IgnoreExtras, Fields{
+					"Resources": Equal(patchedRbacProxyResources),
+				}),
+			}))
 		})
 	})
 })
