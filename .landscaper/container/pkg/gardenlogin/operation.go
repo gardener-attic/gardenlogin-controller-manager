@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
 	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
@@ -67,9 +66,6 @@ type multiCluster struct {
 type cluster struct {
 	//clientSet holds the client set for the cluster
 	*clientSet
-
-	// kubeconfig holds the path to the kubeconfig of the cluster.
-	kubeconfig string
 }
 
 type clientSet struct {
@@ -163,21 +159,11 @@ func kubeconfigFromTarget(target lsv1alpha1.Target) ([]byte, error) {
 	return []byte(*targetConfig.Kubeconfig.StrVal), nil
 }
 
-// newClusterFromTarget returns a cluster struct for the given target and writes the kubeconfig of the target to a temporary file
+// newClusterFromTarget returns a cluster struct for the given target
 func newClusterFromTarget(f util.Factory, target lsv1alpha1.Target) (*cluster, error) {
 	kubeconfig, err := kubeconfigFromTarget(target)
 	if err != nil {
 		return nil, fmt.Errorf("could not get kubeconfig from target: %w", err)
-	}
-
-	kubeconfigFile, err := ioutil.TempFile("", "kubeconfig-*.yaml")
-	if err != nil {
-		return nil, err
-	}
-
-	err = ioutil.WriteFile(kubeconfigFile.Name(), kubeconfig, 0600)
-	if err != nil {
-		return nil, err
 	}
 
 	kube, err := f.ClientGoClientProvider().FromBytes(kubeconfig)
@@ -185,16 +171,15 @@ func newClusterFromTarget(f util.Factory, target lsv1alpha1.Target) (*cluster, e
 		return nil, fmt.Errorf("could not create kubenernetes clientset from config: %w", err)
 	}
 
-	client, err := f.ControllerRuntimeClientProvider().FromBytes(kubeconfig)
+	crClient, err := f.ControllerRuntimeClientProvider().FromBytes(kubeconfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not create client from config: %w", err)
 	}
 
 	return &cluster{
 		clientSet: &clientSet{
-			client:     client,
+			client:     crClient,
 			kubernetes: kube,
 		},
-		kubeconfig: kubeconfigFile.Name(),
 	}, nil
 }
