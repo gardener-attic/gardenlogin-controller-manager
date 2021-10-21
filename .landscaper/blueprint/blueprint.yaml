@@ -51,9 +51,9 @@ localTypes:
     type: object
     properties:
       limits:
-        "$ref": "local://resourceList"
+        $ref: "local://resourceList"
       requests:
-        "$ref": "local://resourceList"
+        $ref: "local://resourceList"
   resourceList:
     type: object
     properties:
