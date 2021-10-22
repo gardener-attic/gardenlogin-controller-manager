@@ -59,6 +59,8 @@ type ConfigMapValidatingWebhookConfiguration struct {
 	MaxObjectSize int `yaml:"maxObjectSize"`
 }
 
+// ReadControllerManagerConfiguration returns a valid ControllerManagerConfiguration struct.
+// The ControllerManagerConfiguration is initialized by reading the config file from the given file path (if the value is not empty), with defaults applied.
 func ReadControllerManagerConfiguration(configFile string) (*ControllerManagerConfiguration, error) {
 	// Default configuration
 	cfg := ControllerManagerConfiguration{
@@ -94,7 +96,8 @@ func readFile(configFile string, cfg *ControllerManagerConfiguration) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+
+	defer func() { _ = f.Close() }()
 
 	decoder := yaml.NewDecoder(f)
 

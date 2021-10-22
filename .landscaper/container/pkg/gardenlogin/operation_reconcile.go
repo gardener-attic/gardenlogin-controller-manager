@@ -96,6 +96,13 @@ func (o *operation) Reconcile(ctx context.Context) error {
 		return err
 	}
 
+	if err := o.setManagerConfig([]string{
+		o.contents.ManagerConfigurationRuntimePath,
+		o.contents.ManagerConfigurationSingleClusterPath,
+	}); err != nil {
+		return err
+	}
+
 	if !o.imports.MultiClusterDeploymentScenario {
 		// single cluster deployment
 		if err := o.singleCluster.buildAndApplyOverlay(ctx, o.contents.SingleClusterPath); err != nil {
@@ -303,6 +310,22 @@ func setNamePrefix(overlayPaths []string, namePrefix string) error {
 
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to set nameprefix %s for overlay path %s, Output: %s: %w", namePrefix, overlayPath, out, err)
+		}
+	}
+
+	return nil
+}
+
+// setManagerConfig writes the manger config from the imports to the given overlay paths
+func (o *operation) setManagerConfig(overlayPaths []string) error {
+	config, err := yaml.Marshal(o.imports.ManagerConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal manager config: %w", err)
+	}
+
+	for _, overlayPath := range overlayPaths {
+		if err = ioutil.WriteFile(overlayPath, config, 0600); err != nil {
+			return fmt.Errorf("failed to write manager config to path %s: %w", overlayPath, err)
 		}
 	}
 

@@ -46,6 +46,39 @@ imports:
     schema:
       $ref: "local://resourceRequirements"
 
+  - name: managerConfig
+    type: data
+    required: false
+    schema:
+      type: object
+      properties:
+        kind:
+          type: string
+        apiVersion:
+          type: string
+        controllers:
+          type: object
+          properties:
+            shoot:
+              type: object
+              properties:
+                maxConcurrentReconciles:
+                  type: integer
+                maxConcurrentReconcilesPerNamespace:
+                  type: integer
+                quotaExceededRetryDelay:
+                  type: number # int64
+                  minimum: -9223372036854775808
+                  maximum: 9223372036854775807
+        webhooks:
+          type: object
+          properties:
+            configMapValidation:
+              type: object
+              properties:
+                maxObjectSize:
+                  type: integer
+
 localTypes:
   resourceRequirements:
     type: object

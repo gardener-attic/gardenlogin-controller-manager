@@ -69,6 +69,10 @@ spec:
       configMapRef:
         key: kubeRbacProxyResources
         name: gardenlogin-container-deployer
+    - name: managerConfig
+      configMapRef:
+        key: managerConfig
+        name: gardenlogin-container-deployer
 
   exports: {}
 
@@ -102,6 +106,16 @@ data:
     requests:
       cpu: 100m
       memory: 20Mi
+  managerConfig: |
+    kind: ControllerManagerConfiguration
+    apiVersion: v1alpha1
+    controllers:
+      shoot:
+        maxConcurrentReconciles: 50
+        maxConcurrentReconcilesPerNamespace: 3
+    webhooks:
+      configMapValidation:
+        maxObjectSize: 102400
 
 binaryData:
   multiClusterDeploymentScenario: "${multiClusterData}"
