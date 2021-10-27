@@ -11,6 +11,7 @@ import (
 	"os"
 
 	cdresources "github.com/gardener/component-cli/pkg/commands/componentarchive/resources"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -20,7 +21,9 @@ func ResourcesFromFile(resourcesFilePath string) ([]cdresources.ResourceOptions,
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		utilruntime.HandleError(file.Close())
+	}()
 
 	resources, err := readResources(file)
 	if err != nil {

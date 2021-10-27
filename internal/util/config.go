@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -97,7 +98,9 @@ func readFile(configFile string, cfg *ControllerManagerConfiguration) error {
 		return err
 	}
 
-	defer func() { _ = f.Close() }()
+	defer func() {
+		utilruntime.HandleError(f.Close())
+	}()
 
 	decoder := yaml.NewDecoder(f)
 
