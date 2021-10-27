@@ -39,9 +39,14 @@ type Imports struct {
 	// It must not start with garden- to prevent name clashes with project namespaces and it must not be the garden namespace.
 	Namespace string `json:"namespace" yaml:"namespace"`
 
-	// ManagerResources define the resource requirements by the "manager" container.
+	// ManagerResources define the resource requirements by the "manager" (gardenlogin-controller-manager) container.
 	ManagerResources corev1.ResourceRequirements `json:"managerResources" yaml:"managerResources"`
 
 	// KubeRBACProxyResources define the resource requirements by the "kube-rbac-proxy" container.
 	KubeRBACProxyResources corev1.ResourceRequirements `json:"kubeRbacProxyResources" yaml:"kubeRbacProxyResources"`
+
+	// ManagerConfig is the ControllerManagerConfiguration for the "manager" (gardenlogin-controller-manager) container
+	// map[string]interface{} type is used instead of using the ControllerManagerConfiguration type which would result in a hard dependency to the github.com/gardener/gardenlogin-controller-manager module
+	// within this multi-module repository.
+	ManagerConfig map[string]interface{} `json:"managerConfig" yaml:"managerConfig"`
 }

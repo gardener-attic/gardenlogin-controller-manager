@@ -34,6 +34,11 @@ type Contents struct {
 	RuntimeOverlayPath string
 	// SingleClusterPath holds the path of the single-cluster kustomize overlay
 	SingleClusterPath string
+
+	// ManagerConfigurationRuntimePath holds the path of the ControllerManagerConfiguration under the runtime overlay
+	ManagerConfigurationRuntimePath string
+	// ManagerConfigurationSingleClusterPath holds the path of the ControllerManagerConfiguration under the single-cluster overlay
+	ManagerConfigurationSingleClusterPath string
 }
 
 // NewContentsFromPath returns Contents struct for the given contentPath
@@ -52,6 +57,9 @@ func NewContentsFromPath(contentPath string) *Contents {
 		VirtualGardenOverlayPath: filepath.Join(contentPath, "config", "overlay", "multi-cluster", "virtual-garden"),
 		RuntimeOverlayPath:       filepath.Join(contentPath, "config", "overlay", "multi-cluster", "runtime"),
 		SingleClusterPath:        filepath.Join(contentPath, "config", "overlay", "single-cluster"),
+
+		ManagerConfigurationRuntimePath:       filepath.Join(contentPath, "config", "overlay", "multi-cluster", "runtime", "manager", "config.yaml"),
+		ManagerConfigurationSingleClusterPath: filepath.Join(contentPath, "config", "overlay", "single-cluster", "manager", "config.yaml"),
 	}
 
 	return contents
