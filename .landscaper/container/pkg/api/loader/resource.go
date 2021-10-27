@@ -21,6 +21,7 @@ func ResourcesFromFile(resourcesFilePath string) ([]cdresources.ResourceOptions,
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() {
 		utilruntime.HandleError(file.Close())
 	}()
