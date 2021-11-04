@@ -9,7 +9,7 @@ gardenlogin-controller-manager:
         inject_effective_version: true
       publish:
         dockerimages:
-          gardenlogin:
+          gardenlogin-controller-manager:
             registry: 'gcr-readwrite'
             image: 'eu.gcr.io/gardener-project/gardener/gardenlogin-controller-manager'
           gardenlogin-container-deployer:
@@ -45,5 +45,5 @@ gardenlogin-controller-manager:
         component_descriptor: ~
         publish:
           dockerimages:
-            gardenlogin:
+            gardenlogin-controller-manager:
               tag_as_latest: true
