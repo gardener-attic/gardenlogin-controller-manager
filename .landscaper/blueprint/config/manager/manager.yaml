@@ -63,6 +63,7 @@ spec:
         volumeMounts:
           - mountPath: /etc/gardenlogin-controller-manager
             name: manager-config
+      serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
         - configMap:
