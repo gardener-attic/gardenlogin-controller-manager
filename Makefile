@@ -59,8 +59,8 @@ fmt: ## Run go fmt against code.
 lint: $(GOPATH)/bin/golangci-lint ## Run golangci-lint against code.
 	golangci-lint run ./... -E golint,whitespace,wsl --skip-files "zz_generated.*"
 
-test: manifests generate fmt lint envtest-use ## Run tests.
-	go test ./... -coverprofile cover.out
+test: manifests generate fmt lint ## Run tests.
+	@./hack/test-integration.sh
 
 ##@ Build
 
@@ -111,9 +111,6 @@ kustomize: ## Download kustomize locally if necessary.
 ENVTEST = $(shell pwd)/bin/setup-envtest
 envtest: ## Download envtest-setup locally if necessary.
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
-
-envtest-use: envtest ## Run envtest-setup use.
-	$(ENVTEST) use 1.21
 
 # go-install-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))

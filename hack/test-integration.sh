@@ -9,14 +9,14 @@ set -o pipefail
 
 # For the check step concourse will set the following environment variables:
 # SOURCE_PATH - path to component repository root directory.
-
 if [[ -z "${SOURCE_PATH}" ]]; then
   export SOURCE_PATH="$(readlink -f "$(dirname ${0})/..")"
 else
   export SOURCE_PATH="$(readlink -f ${SOURCE_PATH})"
 fi
 
-export GO_TEST_ADDITIONAL_FLAGS="-race"
+GO_TEST_ADDITIONAL_FLAGS=${GO_TEST_ADDITIONAL_FLAGS:-""}
 
-"${SOURCE_PATH}"/hack/test-integration.sh
-"${SOURCE_PATH}"/.landscaper/container/hack/test-integration.sh
+source "${SOURCE_PATH}/hack/test-common.sh"
+
+run_test gardenlogin-controller-manager "${SOURCE_PATH}" "${GO_TEST_ADDITIONAL_FLAGS}"
