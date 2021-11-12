@@ -18,9 +18,9 @@ gardenlogin-controller-manager:
             dir: .landscaper/container
     steps:
       check:
-        image: 'golang:1.16.8'
+        image: 'golang:1.17.3'
       test:
-        image: 'golang:1.16.8'
+        image: 'golang:1.17.3'
   jobs:
     head-update:
       traits:
