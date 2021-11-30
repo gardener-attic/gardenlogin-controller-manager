@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Get the required binaries
-FROM golang:1.16.8 as binaries
+FROM golang:1.17.3 as binaries
 ARG kustomize_version=v4.3.0
 
 WORKDIR /workspace
@@ -13,7 +13,7 @@ RUN wget -qO kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/relea
     chmod +x kustomize
 
 # Build the container-deployer binary
-FROM golang:1.16.8 as builder
+FROM golang:1.17.3 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests

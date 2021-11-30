@@ -7,9 +7,12 @@ namespace: gardenlogin-system # namespace should not start with garden- to preve
 
 namePrefix: gardenlogin- # must match with namePrefix defined in ../../default/kustomization.yaml
 
-commonLabels:
-  component: gardenlogin-manager
+labels:
+  - includeSelectors: true
+    pairs:
+      component: gardenlogin-manager
 
 resources:
 - manager
+- rbac # contains only multi-cluster specific kustomization for the runtime cluster
 - ../../../rbac-rt
