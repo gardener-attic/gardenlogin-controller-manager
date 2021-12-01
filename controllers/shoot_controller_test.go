@@ -408,6 +408,64 @@ var _ = Describe("ShootController", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 
+		It("should not delete kubeconfig configMap when shoot deletion timestamp is set", func() {
+			By("deleting shoot")
+			shoot := &gardencorev1beta1.Shoot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+			}
+			shootCopy := shoot.DeepCopy()
+			shoot.Finalizers = append(shoot.Finalizers, "envtest") // add dummy finalizer to ensure that the resource is not removed
+			shoot.Annotations = map[string]string{
+				gardener.ConfirmationDeletion: "true",
+			}
+			Expect(k8sClient.Patch(ctx, shoot, client.MergeFrom(shootCopy))).To(Succeed())
+			Expect(k8sClient.Delete(ctx, shoot)).To(Succeed())
+
+			By("ensuring shoot is not deleted")
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &gardencorev1beta1.Shoot{})
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			By("ensuring configMap is not deleted")
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, configMapKey, &corev1.ConfigMap{})
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+		})
+
+		It("should not delete kubeconfig configMap when shootState deletion timestamp is set", func() {
+			By("deleting shoot")
+			shootState := &gardencorev1alpha1.ShootState{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+			}
+			shootStateCopy := shootState.DeepCopy()
+			shootState.Finalizers = append(shootState.Finalizers, "envtest") // add dummy finalizer to ensure that the resource is not removed
+			shootState.Annotations = map[string]string{
+				gardener.ConfirmationDeletion: "true",
+			}
+			Expect(k8sClient.Patch(ctx, shootState, client.MergeFrom(shootStateCopy))).To(Succeed())
+			Expect(k8sClient.Delete(ctx, shootState)).To(Succeed())
+
+			By("ensuring shootState is not deleted")
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &gardencorev1alpha1.ShootState{})
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			By("ensuring configMap is not deleted")
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, configMapKey, &corev1.ConfigMap{})
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+		})
+
 		Describe("resource quota", func() {
 
 			BeforeEach(func() {

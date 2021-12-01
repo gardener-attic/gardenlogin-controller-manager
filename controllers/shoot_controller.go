@@ -424,16 +424,6 @@ func (r *ShootReconciler) handleRequest(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if shootState.DeletionTimestamp != nil {
-		// shootstate is in deletion - cleanup kubeconfig configMap
-		return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
-	}
-
-	if shoot.DeletionTimestamp != nil {
-		// shoot is in deletion - cleanup kubeconfig configMap
-		return ctrl.Result{}, client.IgnoreNotFound(r.Client.Delete(ctx, kubeconfigConfigMap))
-	}
-
 	if len(shoot.Status.AdvertisedAddresses) == 0 {
 		// we have a watch on the shoot and changes to the advertised addresses should trigger a new reconcile anyhow so there is no need to requeue it immediately
 		return ctrl.Result{RequeueAfter: 60 * time.Minute}, nil
