@@ -11,7 +11,8 @@ input:
 ---
 type: ociImage
 name: kube-rbac-proxy
-relation: local
+version: v0.8.0
+relation: external
 access:
   type: ociRegistry
   imageReference: quay.io/brancz/kube-rbac-proxy:v0.8.0
