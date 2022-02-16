@@ -42,7 +42,7 @@ users:
       provideClusterInfo: true
       command: kubectl
       args:
-      - garden-login
+      - gardenlogin
       - get-client-certificate
 ```
 
