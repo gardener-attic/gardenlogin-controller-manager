@@ -18,8 +18,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
-
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/gardener/gardener/pkg/utils"
 	secretsutil "github.com/gardener/gardener/pkg/utils/secrets"
@@ -35,6 +33,8 @@ import (
 	watchtools "k8s.io/client-go/tools/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
 )
 
 var (

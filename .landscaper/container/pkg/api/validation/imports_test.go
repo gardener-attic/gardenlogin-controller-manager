@@ -6,16 +6,16 @@
 package validation_test
 
 import (
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-	. "github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
-
 	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
+	. "github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
 )
 
 var _ = Describe("Imports", func() {

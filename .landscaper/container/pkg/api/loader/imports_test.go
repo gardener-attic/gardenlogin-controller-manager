@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 
-	. "github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/loader"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	. "github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/loader"
 )
 
 var _ = Describe("Imports", func() {

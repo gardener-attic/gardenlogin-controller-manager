@@ -11,13 +11,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-
 	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 )
 
 // Interface is an interface for the operation.

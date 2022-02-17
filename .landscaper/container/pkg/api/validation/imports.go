@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-
 	lsv1alpha1 "github.com/gardener/landscaper/apis/core/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
 )
 
 // ValidateImports validates an Imports object.

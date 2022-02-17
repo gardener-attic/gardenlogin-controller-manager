@@ -13,9 +13,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
-	"github.com/gardener/gardenlogin-controller-manager/internal/util"
-
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	gardenenvtest "github.com/gardener/gardener/pkg/envtest"
 	"github.com/onsi/ginkgo"
@@ -31,6 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
 )
 
 var (

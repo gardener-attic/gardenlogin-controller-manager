@@ -12,12 +12,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/fake"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/gardenlogin"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -30,6 +24,12 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kind/pkg/fs"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/fake"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/gardenlogin"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
 )
 
 var _ = Describe("Operation Reconcile", func() {

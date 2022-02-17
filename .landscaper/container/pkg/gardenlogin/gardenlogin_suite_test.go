@@ -8,8 +8,6 @@ package gardenlogin_test
 import (
 	"testing"
 
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
-
 	gardenerkubernetes "github.com/gardener/gardener/pkg/client/kubernetes"
 	gardenenvtest "github.com/gardener/gardener/pkg/envtest"
 	"github.com/gardener/gardener/test/framework"
@@ -18,6 +16,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
 )
 
 func TestGardenlogin(t *testing.T) {
