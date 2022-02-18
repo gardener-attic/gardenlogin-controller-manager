@@ -12,10 +12,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gardener/gardenlogin-controller-manager/controllers"
-	"github.com/gardener/gardenlogin-controller-manager/internal/util"
-	"github.com/gardener/gardenlogin-controller-manager/webhooks"
-
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +21,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/gardener/gardenlogin-controller-manager/controllers"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/webhooks"
 )
 
 var (

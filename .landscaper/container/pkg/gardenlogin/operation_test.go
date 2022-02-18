@@ -6,15 +6,15 @@
 package gardenlogin
 
 import (
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/fake"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	clientgofake "k8s.io/client-go/kubernetes/fake"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/fake"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/test"
 )
 
 var _ = Describe("Operation", func() {

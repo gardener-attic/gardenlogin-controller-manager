@@ -11,10 +11,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1"
-	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
-	"github.com/gardener/gardenlogin-controller-manager/internal/test"
-
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	corev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
@@ -32,6 +28,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1"
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
+	"github.com/gardener/gardenlogin-controller-manager/internal/test"
 )
 
 var _ = Describe("ShootController", func() {

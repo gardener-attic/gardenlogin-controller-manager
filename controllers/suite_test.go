@@ -11,10 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gardener/gardenlogin-controller-manager/internal/test"
-	"github.com/gardener/gardenlogin-controller-manager/internal/util"
-	"github.com/gardener/gardenlogin-controller-manager/webhooks"
-
 	gardenenvtest "github.com/gardener/gardener/pkg/envtest"
 	"github.com/gardener/gardener/test/framework"
 	. "github.com/onsi/ginkgo"
@@ -22,6 +18,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
+
+	"github.com/gardener/gardenlogin-controller-manager/internal/test"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/webhooks"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to

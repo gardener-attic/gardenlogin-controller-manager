@@ -10,18 +10,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/loader"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/gardenlogin"
-
 	"github.com/gardener/landscaper/apis/deployer/container"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/component-base/version/verflag"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/loader"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/api/validation"
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/pkg/gardenlogin"
 )
 
 // NewCommandGardenlogin creates a *cobra.Command object with default parameters.

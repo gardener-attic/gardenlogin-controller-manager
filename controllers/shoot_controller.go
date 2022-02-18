@@ -14,10 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1"
-	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
-	"github.com/gardener/gardenlogin-controller-manager/internal/util"
-
 	"github.com/Masterminds/semver"
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
@@ -48,6 +44,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1"
+	"github.com/gardener/gardenlogin-controller-manager/api/v1alpha1/constants"
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
 )
 
 // KubeconfigConfigMapNameSuffix is the name suffix for the configMap that holds the kubeconfig for the corresponding shoot cluster

@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/gardener/gardenlogin-controller-manager/internal/util"
-
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -23,6 +21,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/gardener/gardenlogin-controller-manager/internal/util"
 )
 
 // ConfigmapValidator handles ConfigMap

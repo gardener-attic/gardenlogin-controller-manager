@@ -9,10 +9,10 @@ package fake
 import (
 	"fmt"
 
-	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
-
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/gardener/gardenlogin-controller-manager/.landscaper/container/internal/util"
 )
 
 // ControllerRuntimeClientProvider holds the fake controller-runtime clients
