@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-ENVTEST_K8S_VERSION=${ENVTEST_K8S_VERSION:-"1.20"}
+ENVTEST_K8S_VERSION=${ENVTEST_K8S_VERSION:-"1.23"}
 
 function run_test {
   local component=$1
