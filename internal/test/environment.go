@@ -66,9 +66,10 @@ func New(validator admission.Handler) Environment {
 		},
 	}
 
+	noSideEffects := admissionregistrationv1.SideEffectClassNone
 	webhookInstallOptions := envtest.WebhookInstallOptions{
-		ValidatingWebhooks: []client.Object{
-			&admissionregistrationv1.ValidatingWebhookConfiguration{
+		ValidatingWebhooks: []*admissionregistrationv1.ValidatingWebhookConfiguration{
+			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-validating-webhook-configuration",
 				},
@@ -92,6 +93,8 @@ func New(validator admission.Handler) Environment {
 								constants.GardenerOperationsRole: constants.GardenerOperationsKubeconfig,
 							},
 						},
+						AdmissionReviewVersions: []string{"v1", "v1beta1"},
+						SideEffects:             &noSideEffects,
 					},
 				},
 			},
