@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package test
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -157,9 +158,9 @@ func New(validator admission.Handler) Environment {
 	}
 }
 
-func (e Environment) Start() {
+func (e Environment) Start(ctx context.Context) {
 	go func() {
-		err := e.K8sManager.Start(ctrl.SetupSignalHandler())
+		err := e.K8sManager.Start(ctx)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}()
 
