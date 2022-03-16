@@ -568,7 +568,12 @@ func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
 		return nil, errors.New("failed to unmarshal certificate authority from raw data")
 	}
 
-	return data[secrets.DataKeyCertificateCA], nil
+	key := secrets.DataKeyCertificateCA
+	if ca.Type == "certificate" {
+		key = "certificate"
+	}
+
+	return data[key], nil
 }
 
 // kubeconfigRequest is a struct which holds information about a Kubeconfig to be generated.
