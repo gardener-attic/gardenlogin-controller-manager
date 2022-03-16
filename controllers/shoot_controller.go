@@ -16,9 +16,9 @@ import (
 
 	"github.com/Masterminds/semver"
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
+	corev1alpha1helper "github.com/gardener/gardener/pkg/apis/core/v1alpha1/helper"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	corev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
-	"github.com/gardener/gardener/pkg/utils/infodata"
 	"github.com/gardener/gardener/pkg/utils/secrets"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -556,23 +556,19 @@ var errCaNotProvisioned = errors.New("certificate authority not yet provisioned"
 
 // clusterCaCert reads the ca certificate from the gardener resource data
 func clusterCaCert(shootState *gardencorev1alpha1.ShootState) ([]byte, error) {
-	ca, err := infodata.GetInfoData(shootState.Spec.Gardener, corev1beta1constants.SecretNameCACluster)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ca infoData: %w", err)
-	}
+	resourceDataList := corev1alpha1helper.GardenerResourceDataList(shootState.Spec.Gardener)
 
+	ca := resourceDataList.Get(corev1beta1constants.SecretNameCACluster)
 	if ca == nil {
 		return nil, errCaNotProvisioned
 	}
 
-	caInfoData, ok := ca.(*secrets.CertificateInfoData)
-	if !ok {
-		return nil, errors.New("could not convert InfoData entry ca to CertificateInfoData")
+	data := make(map[string][]byte)
+	if err := json.Unmarshal(ca.Data.Raw, &data); err != nil {
+		return nil, errors.New("failed to unmarshal certificate authority from raw data")
 	}
 
-	caCert := caInfoData.Certificate
-
-	return caCert, nil
+	return data[secrets.DataKeyCertificateCA], nil
 }
 
 // kubeconfigRequest is a struct which holds information about a Kubeconfig to be generated.
