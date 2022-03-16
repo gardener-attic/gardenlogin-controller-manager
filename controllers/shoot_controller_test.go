@@ -9,6 +9,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gardener/gardener/pkg/utils"
 	"time"
 
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
@@ -237,12 +238,7 @@ var _ = Describe("ShootController", func() {
 			}
 
 			ca = generateCaCert()
-			caInfoData := secrets.CertificateInfoData{
-				Certificate: ca.CertificatePEM,
-			}
-
-			caRaw, err := caInfoData.Marshal()
-			Expect(err).ToNot(HaveOccurred())
+			caRaw := []byte(`{"ca.crt":"` + utils.EncodeBase64(ca.CertificatePEM) + `"}`)
 
 			shootState = &gardencorev1alpha1.ShootState{
 				ObjectMeta: metav1.ObjectMeta{
@@ -253,7 +249,7 @@ var _ = Describe("ShootController", func() {
 					Gardener: []gardencorev1alpha1.GardenerResourceData{
 						{
 							Name: corev1beta1constants.SecretNameCACluster,
-							Type: "certificate",
+							Type: "secret",
 							Data: runtime.RawExtension{Raw: caRaw},
 						},
 					},
