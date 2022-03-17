@@ -14,6 +14,7 @@ import (
 	gardencorev1alpha1 "github.com/gardener/gardener/pkg/apis/core/v1alpha1"
 	gardencorev1beta1 "github.com/gardener/gardener/pkg/apis/core/v1beta1"
 	corev1beta1constants "github.com/gardener/gardener/pkg/apis/core/v1beta1/constants"
+	"github.com/gardener/gardener/pkg/utils"
 	"github.com/gardener/gardener/pkg/utils/gardener"
 	"github.com/gardener/gardener/pkg/utils/secrets"
 	"github.com/gardener/gardener/pkg/utils/test/matchers"
@@ -237,12 +238,7 @@ var _ = Describe("ShootController", func() {
 			}
 
 			ca = generateCaCert()
-			caInfoData := secrets.CertificateInfoData{
-				Certificate: ca.CertificatePEM,
-			}
-
-			caRaw, err := caInfoData.Marshal()
-			Expect(err).ToNot(HaveOccurred())
+			caRaw := []byte(`{"ca.crt":"` + utils.EncodeBase64(ca.CertificatePEM) + `"}`)
 
 			shootState = &gardencorev1alpha1.ShootState{
 				ObjectMeta: metav1.ObjectMeta{
@@ -253,7 +249,7 @@ var _ = Describe("ShootController", func() {
 					Gardener: []gardencorev1alpha1.GardenerResourceData{
 						{
 							Name: corev1beta1constants.SecretNameCACluster,
-							Type: "certificate",
+							Type: "secret",
 							Data: runtime.RawExtension{Raw: caRaw},
 						},
 					},
@@ -354,6 +350,42 @@ var _ = Describe("ShootController", func() {
 				"gardenlogin",
 				"get-client-certificate",
 			}))
+		})
+
+		Context("when the ca is stored with type 'certificate' in resource data list", func() {
+			BeforeEach(func() {
+				shootState.Spec.Gardener[0] = gardencorev1alpha1.GardenerResourceData{
+					Name: corev1beta1constants.SecretNameCACluster,
+					Type: "certificate",
+					Data: runtime.RawExtension{
+						Raw: []byte(`{"certificate":"` + utils.EncodeBase64(ca.CertificatePEM) + `"}`),
+					},
+				}
+			})
+
+			It("should create kubeconfig configMap", func() {
+				var kubeconfig string
+				Eventually(func() bool {
+					configMap := &corev1.ConfigMap{}
+					err := k8sClient.Get(ctx, configMapKey, configMap)
+					if err != nil {
+						return false
+					}
+
+					kubeconfig = configMap.Data[constants.DataKeyKubeconfig]
+					return kubeconfig != ""
+				}, timeout, interval).Should(BeTrue())
+
+				clientConfig, err := clientcmd.NewClientConfigFromBytes([]byte(kubeconfig))
+				Expect(err).ToNot(HaveOccurred())
+
+				rawConfig, err := clientConfig.RawConfig()
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(rawConfig.Clusters).To(HaveLen(2))
+				currentCluster := rawConfig.Contexts[rawConfig.CurrentContext].Cluster
+				Expect(rawConfig.Clusters[currentCluster].CertificateAuthorityData).To(Equal(ca.CertificatePEM))
+			})
 		})
 
 		It("should restore kubeconfig configMap", func() {
