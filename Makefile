@@ -56,8 +56,8 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 fmt: ## Run go fmt against code.
 	go fmt ./...
 
-lint: $(GOPATH)/bin/golangci-lint ## Run golangci-lint against code.
-	golangci-lint run ./... -E golint,whitespace,wsl --skip-files "zz_generated.*"
+lint: ## Run golangci-lint against code.
+	@./hack/golangci-lint.sh
 
 test: manifests generate fmt lint ## Run tests.
 	@./hack/test-integration.sh
@@ -96,9 +96,6 @@ deploy-singlecluster: apply-image ## Single-cluster use case: Deploy crd, admiss
 apply-image: manifests kustomize ## Apply gardenlogin controller and kube-rbac-proxy images according to the variables IMG and IMG_RBAC_PROXY
 	cd .landscaper/blueprint/config/manager && $(KUSTOMIZE) edit set image "controller=${IMG}:${EFFECTIVE_VERSION}"
 	cd .landscaper/blueprint/config/default && $(KUSTOMIZE) edit set image "quay.io/brancz/kube-rbac-proxy=${IMG_RBAC_PROXY}"
-
-$(GOPATH)/bin/golangci-lint:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.40.1
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.

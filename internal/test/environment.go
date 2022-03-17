@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package test
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -15,7 +16,7 @@ import (
 
 	"github.com/gardener/gardener/pkg/client/kubernetes"
 	gardenenvtest "github.com/gardener/gardener/pkg/envtest"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,9 +67,10 @@ func New(validator admission.Handler) Environment {
 		},
 	}
 
+	noSideEffects := admissionregistrationv1.SideEffectClassNone
 	webhookInstallOptions := envtest.WebhookInstallOptions{
-		ValidatingWebhooks: []client.Object{
-			&admissionregistrationv1.ValidatingWebhookConfiguration{
+		ValidatingWebhooks: []*admissionregistrationv1.ValidatingWebhookConfiguration{
+			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-validating-webhook-configuration",
 				},
@@ -92,6 +94,8 @@ func New(validator admission.Handler) Environment {
 								constants.GardenerOperationsRole: constants.GardenerOperationsKubeconfig,
 							},
 						},
+						AdmissionReviewVersions: []string{"v1", "v1beta1"},
+						SideEffects:             &noSideEffects,
 					},
 				},
 			},
@@ -154,9 +158,9 @@ func New(validator admission.Handler) Environment {
 	}
 }
 
-func (e Environment) Start() {
+func (e Environment) Start(ctx context.Context) {
 	go func() {
-		err := e.K8sManager.Start(ctrl.SetupSignalHandler())
+		err := e.K8sManager.Start(ctx)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}()
 

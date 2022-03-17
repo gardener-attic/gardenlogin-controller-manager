@@ -13,11 +13,10 @@ import (
 
 	gardenenvtest "github.com/gardener/gardener/pkg/envtest"
 	"github.com/gardener/gardener/test/framework"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 
 	"github.com/gardener/gardenlogin-controller-manager/internal/test"
 	"github.com/gardener/gardenlogin-controller-manager/internal/util"
@@ -48,9 +47,7 @@ func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	SetDefaultEventuallyTimeout(30 * time.Second)
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -78,8 +75,8 @@ var _ = BeforeSuite(func() {
 	err := shootReconciler.SetupWithManager(ctx, k8sManager, cmConfig.Controllers.Shoot)
 	Expect(err).ToNot(HaveOccurred())
 
-	environment.Start()
-}, 60)
+	environment.Start(ctx)
+})
 
 var _ = AfterSuite(func() {
 	cancel()
@@ -88,4 +85,4 @@ var _ = AfterSuite(func() {
 
 	By("tearing down the test environment")
 	Expect(testEnv.Stop()).To(Succeed())
-}, 60)
+})
