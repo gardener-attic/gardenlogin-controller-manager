@@ -1,3 +1,6 @@
+## :warning: DEPRECATED :warning:
+As of the [2.1.0](https://github.com/gardener/gardenctl-v2/releases/tag/v2.1.0) release of `gardenctl-v2` this component is deprecated.
+
 # gardenlogin-controller-manager
 
 [![Slack channel #gardener](https://img.shields.io/badge/slack-gardener-brightgreen.svg?logo=slack)](https://kubernetes.slack.com/messages/gardener)
